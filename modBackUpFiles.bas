@@ -6,7 +6,7 @@ Attribute VB_Name = "modBackUpFiles"
 
 Public Sub BackUpFiles(Directory As String, FilesToBackup() As String)
     
-     ExclusionList = "AOI OLD|IN|AEI|6730|6630|0400.txt"
+     ExclusionList = ""
     
     
     '-----------------------
