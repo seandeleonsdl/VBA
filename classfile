@@ -1,0 +1,82 @@
+Public WithEvents checkbox As MSForms.Label
+
+Dim pRow As Integer
+Dim pRange As Range
+Dim pActive As Boolean
+Dim pSwitch As Range
+
+Public Property Get Row() As Integer
+    Row = pRow
+End Property
+Public Property Let Row(x As Integer)
+    pRow = x
+End Property
+
+
+
+Public Property Set Range(R As Range)
+    Set pRange = R
+End Property
+
+
+Private Sub UI_ActivateCheckBox(ByRef checkbox As Object)
+    'rgba(241,142,51,255)
+    checkbox.BackColor = RGB(255, 147, 0)
+    checkbox.ForeColor = RGB(0, 0, 0)
+    
+End Sub
+
+Private Sub UI_DeactivateCheckBox(ByRef checkbox As Object)
+    
+    If pRange.Value Then checkbox.BackColor = RGB(220, 234, 247)
+        
+End Sub
+
+Private Sub checkbox_Click()
+    
+    If Len(pRange.Value) = 0 Or pRange.Value = "N/A" Then Exit Sub
+    
+    x = Int(Split(checkbox.Name, "_")(1))
+    y = Int(Split(checkbox.Name, "_")(2))
+    MaxStepCount = ThisWorkbook.Sheets(1).Range("C6").Value
+    Set pSwitch = ThisWorkbook.Sheets(2).Range("B2").Offset(x - 1, y - 1)
+    
+    For j = 1 To MaxStepCount
+        Active = pRange.Value
+        
+        If j <> y Then
+            Set instanceSwitch = ThisWorkbook.Sheets(2).Range("B2").Offset(x - 1, j - 1)
+            If instanceSwitch.Value = True Then instanceSwitch.Value = False
+            
+            BackColor = RGB(240, 240, 240)
+            If instanceSwitch.Value = False And Len(instanceSwitch.Value) > 0 Then BackColor = RGB(220, 234, 247)
+            
+            formAutoInkout.Controls("checkStep_" & Format(x, "00") & "_" & Format(j, "00")).BackColor = BackColor
+            
+        End If
+        
+        
+    Next
+    
+    If pSwitch.Value = True Then
+    
+        UI_DeactivateCheckBox checkbox
+        pSwitch.Value = False
+         
+    ElseIf pSwitch.Value = False Then
+        
+        UI_ActivateCheckBox checkbox
+        pSwitch.Value = True
+        Schedule = ThisWorkbook.Sheets(2).Range("A2").Offset(x - 1, 0).Value
+        Step = ThisWorkbook.Sheets(2).Range("B1").Offset(0, y - 1).Value
+        MsgBox Schedule & " " & Step
+        
+'        Remarks = formAutoInkout.CountF30(Schedule, "6730")
+        formAutoInkout.Controls("lblRemarks_" & Format(x, "00")).Caption = Remarks
+        
+    End If
+    
+
+    
+End Sub
+
