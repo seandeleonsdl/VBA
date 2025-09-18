@@ -1,0 +1,68 @@
+Sub Button1_Click()
+
+    Dim filePath As Variant
+    
+    ShiftDate = Now
+    If Hour(Now) < 10 Then ShiftDate = Now - 1
+    
+    ShiftName = UCase(Format(ShiftDate, "mmm dd yyyy"))
+    
+    filePath = "" & ShiftName
+    Dim wip As Workbook
+    Set wip = Application.Workbooks.Open(filePath)
+    wip.Sheets(1).UsedRange.Copy
+    ThisWorkbook.Sheets("WIP").UsedRange.Value = ""
+    ThisWorkbook.Sheets("WIP").Range("A1").PasteSpecial xlPasteValues
+    wip.Close
+    
+    ' Prompt user to select a file
+    filePath = Application.GetOpenFilename( _
+        FileFilter:="Excel Files (*.xls; *.xlsx; *.xlsm), *.xls; *.xlsx; *.xlsm", _
+        Title:="Select a Workbook to Open")
+    
+    ' Check if the user clicked Cancel
+    If filePath = False Then
+        MsgBox "No file selected.", vbExclamation
+        Exit Sub
+    End If
+    
+    ' Open the selected workbook
+    
+
+
+    Column = "B"
+    
+    
+    Dim wb As Workbook
+    Set wb = Application.Workbooks.Open(filePath)
+    LastRow = wb.Sheets(1).Range("B" & Rows.Count).End(xlUp).Row
+    
+    Dim ScheduleList As String
+    For i = 1 To LastRow
+        'MsgBox wb.Sheets(1).Range("B" & i).Value
+        If Len(wb.Sheets(1).Range("B" & i).Value) >= 6 Then
+            Schedule = wb.Sheets(1).Range("B" & i).Value
+            ScheduleList = ScheduleList & Schedule
+        End If
+    Next
+    'MsgBox ScheduleList
+    
+    
+End Sub
+Sub Button2_Click()
+    Dim filePath As Variant
+    
+    ' Prompt user to select a file
+    filePath = Application.GetOpenFilename( _
+        FileFilter:="Excel Files (*.xls; *.xlsx; *.xlsm), *.xls; *.xlsx; *.xlsm", _
+        Title:="Select a Workbook to Open")
+    
+    ' Check if the user clicked Cancel
+    If filePath = False Then
+        MsgBox "No file selected.", vbExclamation
+        Exit Sub
+    End If
+    
+    ' Open the selected workbook
+    Workbooks.Open filePath
+End Sub
