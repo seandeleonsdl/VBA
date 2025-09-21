@@ -1,0 +1,250 @@
+Sub Button1_Click()
+
+    HandoverColumn_LotSchedule = "B"
+    HandoverColumn_LotStep = "C"
+    HandoverColumn_LotStatus = "F"
+
+    '---------------------------
+    ' 1. Load Handover Schedule
+    '---------------------------
+    ' Open the Handover File
+    Dim Handover_FilePath As String, Handover_Workbook As Workbook
+    Handover_FilePath = "C:\Users\Sean\OneDrive\Desktop\Overtime Planning.xlsx"
+    Set Handover_Workbook = Application.Workbooks.Open(Handover_FilePath)
+    
+    '---------------------------------------
+    ' 2. Copy Handover Raw Data to Workbook
+    '---------------------------------------
+    Handover_Workbook.Sheets("NPD").Columns(HandoverColumn_LotSchedule).Copy ThisWorkbook.Sheets("Final Handover").Columns("A")
+    Handover_Workbook.Sheets("NPD").Columns(HandoverColumn_LotStep).Copy ThisWorkbook.Sheets("Final Handover").Columns("B")
+    Handover_Workbook.Sheets("NPD").Columns(HandoverColumn_LotStatus).Copy ThisWorkbook.Sheets("Final Handover").Columns("C")
+    Handover_Workbook.Close
+    
+    Dim Handover_Arrangement(1 To 500, 1 To 7) As Variant, Handover_ScheduleCount As Integer
+    Handover_ScheduleCount = 0
+    
+    ' Loop through each schedule in the Handover File
+    Dim Handover_LastRow As Integer
+    Handover_LastRow = ThisWorkbook.Sheets("Final Handover").Range("A" & Rows.Count).End(xlUp).Row
+    For i = 1 To Handover_LastRow
+    
+        ' Check if the Instance is a Lot Schedule
+        If Len(ThisWorkbook.Sheets("Final Handover").Range("A" & i).Value2) >= 6 Then
+            
+            ' Get NPD Lot Info
+            Lot_Schedule = ThisWorkbook.Sheets("Final Handover").Range("A" & i).Value2
+            Lot_Step = ThisWorkbook.Sheets("Final Handover").Range("B" & i).Value2
+            Lot_Status = ThisWorkbook.Sheets("Final Handover").Range("C" & i).Value2
+            
+            ' Compress NPD Lot Data
+            Lot_CustomerCode = Mid(Lot_Schedule, 3, 2)
+            Lot_KeySchedule = Left(Lot_Schedule, 2) & Mid(Lot_Schedule, 5, 2) & IIf(InStr(1, Lot_Schedule, "B0") > 0, Right(Lot_Schedule, 2), "")
+            Lot_HandoverLocation = i
+            
+            ScheduleIsNotIncluded = True
+            For j = 1 To Handover_ScheduleCount
+                
+                If Handover_Arrangement(2 + j, 5) = Lot_CustomerCode Then
+                    If Handover_Arrangement(2 + j, 6) = Lot_KeySchedule Then
+                        ScheduleIsNotIncluded = False
+                    
+                        Exit For
+                    End If
+                End If
+            Next
+            
+            If ScheduleIsNotIncluded Then
+                
+                Handover_ScheduleCount = Handover_ScheduleCount + 1
+                Handover_Arrangement(2 + Handover_ScheduleCount, 1) = Lot_Schedule
+                Handover_Arrangement(2 + Handover_ScheduleCount, 2) = Lot_Step
+                Handover_Arrangement(2 + Handover_ScheduleCount, 3) = Lot_Status
+                Handover_Arrangement(2 + Handover_ScheduleCount, 5) = Lot_CustomerCode
+                Handover_Arrangement(2 + Handover_ScheduleCount, 6) = Lot_KeySchedule
+                Handover_Arrangement(2 + Handover_ScheduleCount, 7) = Lot_HandoverLocation
+            
+            End If
+            
+        End If
+    Next
+    
+    '--------------------------
+    ' 2. Load NPD Lot Database
+    '--------------------------
+    Dim Database_LastRow As Integer
+    Database_LastRow = ThisWorkbook.Sheets(1).Range("A" & Rows.Count).End(xlUp).Row
+    
+    Dim Database_Arrangement(1 To 500, 1 To 6) As Variant, Database_ScheduleCount As Integer
+    Database_ScheduleCount = Database_LastRow - 2
+    
+    Dim Database_StringSchedule As String
+    
+    For i = 3 To Database_LastRow
+    
+        ' Get NPD Lot Info
+        Lot_Schedule = ThisWorkbook.Sheets("NPD").Range("A" & i).Value2
+        Lot_Step = ThisWorkbook.Sheets("NPD").Range("B" & i).Value2
+        Lot_Status = ThisWorkbook.Sheets("NPD").Range("C" & i).Value2
+        
+        ' Compress NPD Lot Data
+        Lot_CustomerCode = Mid(Lot_Schedule, 3, 2)
+        Lot_KeySchedule = Left(Lot_Schedule, 2) & Mid(Lot_Schedule, 5, 2) & IIf(InStr(1, Lot_Schedule, "B0") > 0, Right(Lot_Schedule, 2), "")
+        
+        Database_Arrangement(i, 1) = Lot_Schedule
+        Database_StringSchedule = Database_StringSchedule & "[" & i & "]"
+        Database_Arrangement(i, 2) = Lot_Step
+        Database_Arrangement(i, 3) = Lot_Status
+        Database_Arrangement(i, 4) = Lot_CustomerCode
+        Database_Arrangement(i, 5) = Lot_KeySchedule
+            
+    Next
+    
+    '-------------------------------------------------
+    ' 3. Compare the NPD Lot Database to the Handover
+    '-------------------------------------------------
+    Dim Handover_SchedulesChanged As String
+    For i = 1 To Handover_ScheduleCount
+        
+        Handover_Schedule = Handover_Arrangement(2 + i, 1)
+        Handover_Step = Handover_Arrangement(2 + i, 2)
+        Handover_Status = Handover_Arrangement(2 + i, 3)
+        
+        For j = 1 To Database_ScheduleCount
+             
+             Database_Schedule = Database_Arrangement(2 + j, 1)
+             Database_Step = Database_Arrangement(2 + j, 2)
+             Database_Status = Database_Arrangement(2 + j, 3)
+             
+             If Handover_Schedule = Database_Schedule Then
+                
+                Database_StringSchedule = Replace(Database_StringSchedule, "[" & 2 + j & "]", "")
+                
+                If Handover_Step <> Database_Step Or Len(Handover_Status) <> Len(Database_Status) Then
+                    Handover_SchedulesChanged = Handover_SchedulesChanged & i & ","
+                    
+                '    MsgBox "Step change for " & HandoverSchedule
+                    
+                    
+                End If
+             End If
+        Next
+    Next
+    
+    If Len(Handover_SchedulesChanged) > 0 Then
+        Handover_SchedulesChanged = Left(Handover_SchedulesChanged, Len(Handover_SchedulesChanged) - 1)
+    End If
+    
+    '--------------------------------
+    ' 4. Update the NPD Lot Database
+    '--------------------------------
+    ThisWorkbook.Sheets(1).Columns("B:D").Insert
+    ThisWorkbook.Sheets(1).Columns("A:D").Interior.Color = xlNone
+    
+    Handover_Arrangement(2, 1) = "SCHEDULE"
+    Handover_Arrangement(2, 2) = "STEP"
+    Handover_Arrangement(2, 3) = "REMARKS"
+    Handover_Arrangement(2, 4) = "PE NOTES"
+    
+    ShiftDate = Now
+    If Hour(Now) < 10 Then ShiftDate = Now - 1
+    ShiftName = UCase(Format(ShiftDate, "mmm dd yyyy hh:ss"))
+    
+    Handover_Arrangement(1, 2) = ShiftName
+    
+    
+    
+    Database_StringSchedule = Replace(Database_StringSchedule, "[", "")
+    Database_StringSchedule = Left(Database_StringSchedule, Len(Database_StringSchedule) - 1)
+
+    For Each ScheduleNotInHandover In Split(Database_StringSchedule, "]")
+        
+        Handover_ScheduleCount = Handover_ScheduleCount + 1
+        Handover_Arrangement(2 + Handover_ScheduleCount, 1) = Database_Arrangement(ScheduleNotInHandover, 1)
+        Handover_Arrangement(2 + Handover_ScheduleCount, 2) = Database_Arrangement(ScheduleNotInHandover, 2)
+        Handover_Arrangement(2 + Handover_ScheduleCount, 3) = Database_Arrangement(ScheduleNotInHandover, 3)
+        Handover_Arrangement(2 + Handover_ScheduleCount, 4) = "NO HANDOVER RECORD"
+          
+    Next
+    
+    For Each ScheduleChanged In Split(Handover_SchedulesChanged, ",")
+        ThisWorkbook.Sheets(1).Range("A2:D2").Offset(ScheduleChanged, 0).Interior.Color = RGB(241, 206, 238)
+    Next
+    
+    
+    
+    ThisWorkbook.Sheets(1).Range("A1:D" & 2 + Handover_ScheduleCount).Value = Handover_Arrangement
+    
+    
+    
+    
+    
+    
+End Sub
+
+Sub old_button()
+    
+    Dim filePath As Variant
+    
+    ShiftDate = Now
+    If Hour(Now) < 10 Then ShiftDate = Now - 1
+    
+    ShiftName = UCase(Format(ShiftDate, "mmm dd yyyy"))
+    
+    filePath = "" & ShiftName
+    Dim wip As Workbook
+    Set wip = Application.Workbooks.Open(filePath)
+    wip.Sheets(1).UsedRange.Copy
+    ThisWorkbook.Sheets("WIP").UsedRange.Value = ""
+    ThisWorkbook.Sheets("WIP").Range("A1").PasteSpecial xlPasteValues
+    wip.Close
+    
+    ' Prompt user to select a file
+    filePath = Application.GetOpenFilename( _
+        FileFilter:="Excel Files (*.xls; *.xlsx; *.xlsm), *.xls; *.xlsx; *.xlsm", _
+        Title:="Select a Workbook to Open")
+    
+    ' Check if the user clicked Cancel
+    If filePath = False Then
+        MsgBox "No file selected.", vbExclamation
+        Exit Sub
+    End If
+    
+    ' Open the selected workbook
+    
+
+
+    Column = "B"
+    
+    
+    Dim wb As Workbook
+    Set wb = Application.Workbooks.Open(filePath)
+    LastRow = wb.Sheets(1).Range("B" & Rows.Count).End(xlUp).Row
+    
+    Dim ScheduleList As String
+    For i = 1 To LastRow
+        'MsgBox wb.Sheets(1).Range("B" & i).Value
+        If Len(wb.Sheets(1).Range("B" & i).Value) >= 6 Then
+            Schedule = wb.Sheets(1).Range("B" & i).Value
+            ScheduleList = ScheduleList & Schedule
+        End If
+    Next
+    'MsgBox ScheduleList
+End Sub
+
+Sub Button2_Click()
+    Dim filePath As Variant
+    
+    ' Prompt user to select a file
+    filePath = Application.GetOpenFilename( _
+        FileFilter:="Excel Files (*.xls; *.xlsx; *.xlsm), *.xls; *.xlsx; *.xlsm", _
+        Title:="Select a Workbook to Open")
+    
+    ' Check if the user clicked Cancel
+    If filePath = False Then
+        MsgBox "No file selected.", vbExclamation
+        Exit Sub
+    End If
+    
+    ' Open the selected workbook
+    Workbooks.Open filePath
+End Sub
