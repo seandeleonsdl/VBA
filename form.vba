@@ -20,9 +20,7 @@ End Sub
 
 Private Sub UserForm_Initialize()
         
-    '------------------------
-    ' 1.) Program properties
-    '------------------------
+    
     PROPERTIES_PanelMapDirectory = ThisWorkbook.Sheets(1).Range("C2").Value2
     PROPERTIES_InkoutMapDirectory = ThisWorkbook.Sheets(1).Range("C3").Value2
     PROPERTIES_MergeMapDirectory = ThisWorkbook.Sheets(1).Range("C4").Value2
