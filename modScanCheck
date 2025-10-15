@@ -1,0 +1,280 @@
+Private Sub Create_Monitoring()
+
+        
+    ThisWorkbook.Sheets.Add(After:=Sheets(1)).Name = "Machine Address"
+    Set wsMachineAddress = ThisWorkbook.Sheets("Machine Address")
+
+    Dim Headers(1 To 1, 1 To 4) As String
+    Headers(1, 1) = "Machine"
+    Headers(1, 2) = "IP Address"
+
+    wsMachineAddress.Range("A1:D1").Value = Headers
+    
+
+End Sub
+
+Private Sub ScanResults_CheckAll()
+    ScanResults_CheckCamtek
+    ScanResults_CheckCMIt
+    
+End Sub
+
+Private Sub ScanResults_CheckCamtek()
+    
+        
+    '--------------------------
+    ' 1 Check Camtek Directory
+    '--------------------------
+    Camtek_Directory = "\\10.16.207.237\6905\FX_Camtek"
+    Camtek_Directory = "C:\Users\Sean\OneDrive\Desktop\FX_Camtek"
+    
+    '----------------------------
+    ' 2 Loop all Camtek Machines
+    '----------------------------
+    
+    Marvel_Recipes = ""
+    
+    Camtek_Folder = Dir(Camtek_Directory & "\", vbDirectory)
+    Camtek_Machines = ""
+    Do While Camtek_Folder <> ""
+        
+        '------------------------
+        ' File Filter Conditions
+        '------------------------
+        IsMachineFolder = Len(Camtek_Folder) > 2
+        
+        If IsMachineFolder Then
+            Camtek_Machines = Camtek_Machines & "|" & Camtek_Directory & "\" & Camtek_Folder
+        End If
+        Camtek_Folder = Dir
+    Loop
+    If Len(Camtek_Machines) > 0 Then Camtek_Machines = Right(Camtek_Machines, Len(Camtek_Machines) - 1)
+    'MsgBox Replace(Camtek_Machines, "|", vbNewLine)
+
+    '---------------------------
+    ' 3 Loop all Camtek Recipes
+    '---------------------------
+    IsMarvelRecipe = False
+    Marvel_Recipes = ""
+    
+    For Each Machine In Split(Camtek_Machines, "|")
+    
+        Folder = Dir(Machine & "\", vbDirectory)
+        Do While Folder <> ""
+            
+            '------------------------
+            ' File Filter Conditions
+            '------------------------
+            IsMarvelRecipe = Len(Folder) > 2
+            IsMarvelRecipe = InStr(1, Folder, "2L22")
+            
+            If IsMarvelRecipe Then
+                Marvel_Recipes = Marvel_Recipes & "|" & Machine & "\" & Folder
+            End If
+            Folder = Dir
+        Loop
+        
+    Next
+    If Len(Marvel_Recipes) > 0 Then Marvel_Recipes = Right(Marvel_Recipes, Len(Marvel_Recipes) - 1)
+    
+    '-------------------------------
+    ' 4 Check all Schedules scanned
+    '-------------------------------
+    Dim RecentScan_Schedule As String, RecentScan_Step As String, RecentScan_Path As String
+    Dim RecentScan_LotDetails(1 To 100, 1 To 3) As String
+    Dim RecentScan_Count As Integer
+    
+    For Each Recipe In Split(Marvel_Recipes, "|")
+        
+        Folder = Dir(Recipe & "\", vbDirectory)
+
+        
+        Do While Folder <> ""
+            
+            '------------------------
+            ' File Filter Conditions
+            '------------------------
+            IsLotSchedule = Len(Folder) >= 6
+            
+            RecentlyScanned = False
+            
+            If IsLotSchedule Then
+                
+                RecentScan_ScanDate = FileDateTime(Recipe & "\" & Folder)
+                
+                RecentlyScanned = DateDiff("d", Now, RecentScan_ScanDate) < 4
+            End If
+            
+            If RecentlyScanned Then
+                
+                RecentScan_Count = RecentScan_Count + 1
+                
+                RecentScan_Schedule = Folder
+                RecentScan_Step = Split(Recipe, "-")(UBound(Split(Recipe, "-")))
+                RecentScan_Path = Recipe & "\" & RecentScan_Schedule
+                
+                RecentScan_LotDetails(RecentScan_Count, 1) = RecentScan_Schedule
+                RecentScan_LotDetails(RecentScan_Count, 2) = RecentScan_Step
+                RecentScan_LotDetails(RecentScan_Count, 3) = RecentScan_Path
+                
+            End If
+            
+           
+            Folder = Dir
+        Loop
+    Next
+    
+    '----------------------------
+    ' 5 Check all Wafers scanned
+    '----------------------------
+    Dim RecentScan_Schedule As String, RecentScan_Step As String, RecentScan_Path As String
+    Dim RecentScan_LotDetails(1 To 100, 1 To 3) As String
+    Dim RecentScan_Count As Integer
+    
+    For i = 1 To RecentScan_Count
+        
+        Schedule = RecentScan_LotDetails(i, 3)
+        Folder = Dir(Schedule & "\", vbDirectory)
+
+        Do While Folder <> ""
+            
+            '------------------------
+            ' File Filter Conditions
+            '------------------------
+            IsWaferID = Len(Folder) > 2
+            
+        
+            
+            
+                
+            RecentScan_Count = RecentScan_Count + 1
+                
+            RecentScan_Schedule = Folder
+            RecentScan_Step = Split(Recipe, "-")(UBound(Split(Recipe, "-")))
+            RecentScan_Path = Recipe & "\" & RecentScan_Schedule
+                
+            RecentScan_LotDetails(RecentScan_Count, 1) = RecentScan_Schedule
+            RecentScan_LotDetails(RecentScan_Count, 2) = RecentScan_Step
+            RecentScan_LotDetails(RecentScan_Count, 3) = RecentScan_Path
+                
+            End If
+            
+           
+            Folder = Dir
+        Loop
+    Next
+    
+    
+    
+    
+    Dim EntryCount As Integer
+    EntryCount = ThisWorkbook.Sheets("Scan Results").Range("A" & Rows.Count).End(xlUp).Row - 1
+    ThisWorkbook.Sheets("Scan Results").Range("A2:C" & 1 + RecentScan_Count).Offset(EntryCount, 0).Value = RecentScan_LotDetails
+    
+    
+    
+    
+    
+    
+End Sub
+
+
+Private Sub ScanResults_CheckCMIt()
+    
+    '---------------------
+    ' FUNCTION OBJECTIVES
+    '---------------------
+    ' 1. Collect all recipe names
+    ' 2. Collect all recently scanned schedules
+    ' 3. C
+    
+    
+    InterestSchedule = ThisWorkbook.Sheets("Machine Address").Range("A2").Value
+    
+    '------------------------
+    ' 1 Check CMIt Directory
+    '------------------------
+    CMItDirectory = "\\10.16.207.237\6905\B6_Cmit"
+    CMItDirectory = "C:\Users\Sean\OneDrive\Desktop\B6_CMIt"
+    
+    '--------------------------
+    ' 2 Check all CMIt Recipes
+    '--------------------------
+    IsMarvelRecipe = False
+    Marvel_Recipes = ""
+    
+    Recipe = Dir(CMItDirectory & "\", vbDirectory)
+    Do While Recipe <> ""
+        
+        '------------------------
+        ' File Filter Conditions
+        '------------------------
+        IsMarvelRecipe = InStr(1, Recipe, "2L2261")
+        
+    
+        If IsMarvelRecipe Then
+            Marvel_Recipes = Marvel_Recipes & "|" & CMItDirectory & "\" & Recipe
+        End If
+        Recipe = Dir
+    Loop
+    If Len(Marvel_Recipes) > 0 Then Marvel_Recipes = Right(Marvel_Recipes, Len(Marvel_Recipes) - 1)
+    
+    
+    '-------------------------------
+    ' 3 Check all Schedules scanned
+    '-------------------------------
+    Dim RecentScan_Schedule As String, RecentScan_Step As String, RecentScan_Path As String
+    Dim RecentScan_LotDetails(1 To 100, 1 To 3) As String
+    Dim RecentScan_Count As Integer
+    
+    
+    For Each Marvel_Recipe In Split(Marvel_Recipes, "|")
+        
+        Schedule = Dir(Marvel_Recipe & "\", vbDirectory)
+        Do While Schedule <> ""
+        
+            '------------------------
+            ' File Filter Conditions
+            '------------------------
+            ScheduleOfInterest = False
+            ScheduleOfInterest = Len(Schedule) >= 6
+            
+            RecentlyScanned = False
+            
+            If ScheduleOfInterest Then
+            
+                ScheduleOfInterest_Schedule = Schedule
+                ScheduleOfInterest_ScanDate = FileDateTime(Marvel_Recipe & "\" & Schedule)
+                
+                RecentlyScanned = DateDiff("d", Now, ScheduleOfInterest_ScanDate) < 4
+            End If
+            
+            If RecentlyScanned Then
+                
+                RecentScan_Count = RecentScan_Count + 1
+                
+                RecentScan_Schedule = Schedule
+                RecentScan_Step = Split(Marvel_Recipe, "-")(UBound(Split(Marvel_Recipe, "-")))
+                RecentScan_Path = Marvel_Recipe & "\" & Schedule
+                
+                RecentScan_LotDetails(RecentScan_Count, 1) = RecentScan_Schedule
+                RecentScan_LotDetails(RecentScan_Count, 2) = RecentScan_Step
+                RecentScan_LotDetails(RecentScan_Count, 3) = RecentScan_Path
+                
+            End If
+            
+           
+            Schedule = Dir
+        Loop
+        
+    Next
+    
+    
+    Dim EntryCount As Integer
+    EntryCount = ThisWorkbook.Sheets("Scan Results").Range("A" & Rows.Count).End(xlUp).Row - 1
+    ThisWorkbook.Sheets("Scan Results").Range("A2:C" & 1 + RecentScan_Count).Offset(EntryCount, 0).Value = RecentScan_LotDetails
+    
+End Sub
+
+
+
