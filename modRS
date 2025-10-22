@@ -1,0 +1,242 @@
+
+Private Function sad() As String
+    
+    '----------------------------
+    ' Set Resistance_Data Format
+    '----------------------------
+    ResistanceData_StartRow = 2
+    
+    ResistanceData_LeakageWaferIDColumn = 0
+    ResistanceData_LeakageDieColumn = 0
+    ResistanceData_LeakagePointColumn = 0
+    ResistanceData_LeakageValueColumn = 3
+    
+    ResistanceData_ResistanceWaferIDColumn = 0
+    ResistanceData_ResistanceDieColumn = 0
+    ResistanceData_ResistancePointColumn = 0
+    ResistanceData_ResistanceValueColumn = 0
+    
+    '------------------------------------------------------
+    ' Get Resistance_Schedules/Resistance_ScheduleFilepath
+    '------------------------------------------------------
+    Dim Resistance_Directory(0) As Variant
+    Resistance_Directory(0) = "C:\Users\Sean\OneDrive\Desktop\B1_RESZ_01"
+    
+    Resistance_Schedules = functionListSubdirectories(Resistance_Directory, "filterLMLotsOnly", True)
+    'functionDisplayArray (Resistance_Schedules)
+    
+    '-----------------------------------
+    ' Create Resistance_Schedule Array
+    '-----------------------------------
+    Resistance_LMScheduleCount = UBound(Resistance_Schedules) + 1
+    'MsgBox Resistance_LMScheduleCount
+    Dim SummaryData() As Variant
+    ReDim SummaryData(1 To Resistance_LMScheduleCount, 1 To 5)
+    For i = 1 To Resistance_LMScheduleCount
+        
+        SummaryData(i, 1) = Split(Resistance_Schedules(i - 1), "\")(UBound(Split(Resistance_Schedules(i - 1), "\")))
+        'MsgBox SummaryData(i, 1)
+    Next
+    
+    '-------------------------------------------------------
+    ' Get Resistance_CSVFiles for each Resistance_Schedules
+    '-------------------------------------------------------
+    Resistance_CSVFiles = functionListSubdirectories(Resistance_Schedules, "filterCSVFile", True)
+    'functionDisplayArray (Resistance_CSVFiles)
+    
+    
+    Dim RowCount As Integer, ColumnCount As Integer
+    Dim Resistance_Data() As String
+    For Each csvFile In Resistance_CSVFiles
+        
+        ReDim Resistance_Data(1 To 20, 1 To 20)
+        
+        '---------------------------
+        ' Parse Resistance_CSVFiles
+        '---------------------------
+        RowInstance = 0
+        For Each Row In Split(functionReadCSV(csvFile), "$")
+            
+            RowInstance = RowInstance + 1
+            ColumnInstance = 0
+            For Each Element In Split(Row, ",")
+                
+                ColumnInstance = ColumnInstance + 1
+                Resistance_Data(RowInstance, ColumnInstance) = Element
+                
+            Next
+            
+            
+        Next
+    
+        'MsgBox Resistance_Data(1, 1)
+        '-----------------------------
+        '
+        '------------------------------
+        If UBound(Split(Resistance_Data(2, 2), ".")) > 0 Then Schedule = Split(Resistance_Data(2, 2), ".")(0)
+        If UBound(Split(Resistance_Data(2, 1), "-")) > 0 Then Step = Split(Resistance_Data(2, 1), "-")(1)
+        
+        Timestamp = Resistance_Data(1, 1)
+        
+        '--------------
+        ' Leakage Data
+        '--------------
+        LKG_Data = InStr(1, csvFile, "LKG") > 0
+        If LKG_Data Then
+            
+            '-------------------------
+            ' 1. Missing Leakage Data
+            '-------------------------
+            If RowInstance < 9 Then Remarks = Remarks & vbNewLine & "Missing LKG data"
+            
+            LeakageFailDueToMachine_Count = 0
+            LeakageFailDueToMaterial_Count = 0
+            For i = ResistanceData_StartRow To RowInstance
+                
+                LeakageValue = Resistance_Data(i, ResistanceData_LeakageValueColumn)
+                
+                '-------------------------------------
+                ' 2. Leakage Fail (Measurement Short)
+                '-------------------------------------
+                If LeakageValue > 100 Then
+                    LeakageFailDueToMachine_Count = LeakageFailDueToMachine_Count + 1
+                
+                '-------------------------------
+                ' 3. Leakage Fail (RDL/Pattern)
+                '-------------------------------
+                ElseIf LeakageValue > 1 Then
+                    LeakageFailDueToMaterial_Count = LeakageFailDueToMaterial_Count + 1
+                End If
+    
+            Next
+            If LeakageFailDueToMachine_Count > 0 Then Remarks = Remarks & vbNewLine & "Leakage Fail (Measurement Short): " & LeakageFailDueToMachine_Count
+            If LeakageFailDueToMaterial_Count > 0 Then Remarks = Remarks & vbNewLine & "Leakage Fail (RDL Pattern): " & LeakageFailDueToMaterial_Count
+            
+        Remarks = Right(Remarks, Len(Remarks) - 2)
+        MsgBox Schedule
+        '-----------------
+        ' Resistance Data
+        '-----------------
+        
+        Else
+            
+        End If
+
+        For i = 1 To Resistance_LMScheduleCount
+            MsgBox "[" & SummaryData(i, 1) & "] and [" & Schedule & "]"
+            If SummaryData(i, 1) = Schedule Then
+                
+                If Step = "6801" Then SummaryData(i, 2) = Remarks
+                If Step = "6881" Then SummaryData(i, 3) = Remarks
+                If Step = "6880" Then SummaryData(i, 4) = Remarks
+                If Step = "6883" Then SummaryData(i, 5) = Remarks
+                Exit For
+            End If
+        Next
+        
+        
+        
+        
+        
+    Next
+    
+    
+    
+    
+    
+    ThisWorkbook.Sheets(2).Range("A2:E22").Value = SummaryData
+    
+    
+    
+    
+    
+End Function
+
+Private Sub functionDisplayArray(ByVal DisplayArray As Variant)
+
+    Display = ""
+    For Each Item In DisplayArray
+        Display = Display & Item & vbNewLine
+    Next
+    If Display <> "" Then Display = Left(Display, Len(Display) - 2)
+    MsgBox Display
+    
+End Sub
+
+
+
+Private Function filterCSVFile(SubfolderName As String) As Boolean
+    
+    Filename = Split(SubfolderName, "\")(UBound(Split(SubfolderName, "\")))
+    filterCSVFile = InStr(1, Filename, ".csv")
+
+End Function
+
+Private Function filterLMLotsOnly(SubfolderName As String) As Boolean
+    
+    Filename = Split(SubfolderName, "\")(UBound(Split(SubfolderName, "\")))
+    filterLMLotsOnly = Mid(Filename, 3, 2) = "LM"
+    
+    
+End Function
+
+
+Private Function functionListSubdirectories(ByVal Directories As Variant, Filter As String, ListAsFilepath As Boolean) As Variant
+    
+    Subdirectories = ""
+    For Each Directory In Directories
+        Subdirectory_Folder = Dir(Directory & "\", vbDirectory)
+        
+        Do While Subdirectory_Folder <> ""
+            
+            If ListAsFilepath Then
+                Subdirectories = Subdirectories & "|" & Directory & "\" & Subdirectory_Folder
+            Else
+                Subdirectories = Subdirectories & "|" & Subdirectory_Folder
+            End If
+            
+            Subdirectory_Folder = Dir
+            
+        Loop
+    Next
+    If Subdirectories <> "" Then Subdirectories = Right(Subdirectories, Len(Subdirectories) - 1)
+    'MsgBox Replace(Subdirectories, "|", vbNewLine)
+    
+    FilteredSubdirectories = ""
+    For Each Subdirectory In Split(Subdirectories, "|")
+        
+        PassFilter = Application.Run(Filter, Subdirectory)
+        If PassFilter Then FilteredSubdirectories = FilteredSubdirectories & "|" & Subdirectory
+    Next
+    If FilteredSubdirectories <> "" Then FilteredSubdirectories = Right(FilteredSubdirectories, Len(FilteredSubdirectories) - 1)
+    'MsgBox Replace(FilteredSubdirectories, "|", vbNewLine)
+    
+    functionListSubdirectories = Split(FilteredSubdirectories, "|")
+    
+End Function
+
+
+
+
+
+Private Function functionReadCSV(ByVal Filename As String)
+
+    Dim FreeFileNumber As Integer, line As String, data As Variant, allData As Collection
+    Set allData = New Collection
+
+    FreeFileNumber = FreeFile()
+    Open Filename For Input As #FreeFileNumber
+
+    RawData = ""
+    Do Until EOF(FreeFileNumber)
+        Line Input #FreeFileNumber, Streamline
+        RawData = RawData & "$" & Streamline
+    Loop
+    RawData = Right(RawData, Len(RawData) - 1)
+    
+
+    Close FreeFileNumber
+    
+    functionReadCSV = RawData
+
+End Function
