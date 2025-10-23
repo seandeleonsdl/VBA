@@ -1,4 +1,196 @@
 
+Private Function sad2() As String
+    
+
+    '------------------------------------------------------
+    ' Get Resistance_Schedules/Resistance_ScheduleFilepath
+    '------------------------------------------------------
+    Dim Resistance_Directory(0) As Variant
+    Resistance_Directory(0) = "C:\Users\Sean\OneDrive\Desktop\B1_RESZ_01"
+    Resistance_Schedules = functionListSubdirectories(Resistance_Directory, "filterLMLotsOnly", True)
+    'functionDisplayArray (Resistance_Schedules)
+    
+    '-------------------------------------------------------
+    ' Get Resistance_CSVFiles for each Resistance_Schedules
+    '-------------------------------------------------------
+    Dim Resistance_Schedule(0) As Variant
+    For Each Schedule In Resistance_Schedules
+        
+        Resistance_Schedule(0) = Schedule
+        Resistance_CSVFiles = functionListSubdirectories(Resistance_Schedule, "filterCSVFile", True)
+        functionDisplayArray (Resistance_CSVFiles)
+        
+        For Each CSVFile In Resistance_CSVFiles
+        
+            MsgBox functionReviewResistanceData(CSVFile)
+            
+        
+        Next
+    Next
+    
+    '-----------------------------
+    ' Review each resistance file
+    '-----------------------------
+    
+    
+    
+    
+    '-----------------------------------
+    ' Create Resistance_Schedule Array
+    '-----------------------------------
+    Resistance_LMScheduleCount = UBound(Resistance_Schedules) + 1
+    'MsgBox Resistance_LMScheduleCount
+    Dim SummaryData() As Variant
+    ReDim SummaryData(1 To Resistance_LMScheduleCount, 1 To 5)
+    For i = 1 To Resistance_LMScheduleCount
+            
+        SummaryData(i, 1) = Split(Resistance_Schedules(i - 1), "\")(UBound(Split(Resistance_Schedules(i - 1), "\")))
+        'MsgBox SummaryData(i, 1)
+    Next
+    
+    
+    
+    
+    
+    
+    Dim RowCount As Integer, ColumnCount As Integer
+    Dim Resistance_Data() As String
+    
+    
+    
+    
+    
+    ThisWorkbook.Sheets(2).Range("A2:E22").Value = SummaryData
+    
+    
+    
+    
+    
+End Function
+
+Private Function functionReviewResistanceData(ByVal CSVFile As String) As Variant
+    
+    '---------------
+    ' Parse CSVFile
+    '---------------
+    Dim Resistance_Data(1 To 20, 1 To 20) As Variant
+    RowInstance = 0
+    For Each Row In Split(functionReadCSV(CSVFile), "$")
+            
+        RowInstance = RowInstance + 1
+        ColumnInstance = 0
+        For Each Element In Split(Row, ",")
+                
+            ColumnInstance = ColumnInstance + 1
+            Resistance_Data(RowInstance, ColumnInstance) = Element
+                
+        Next
+    Next
+    
+    '----------------------------
+    ' Set Resistance_Data Format
+    '----------------------------
+    ResistanceData_StartRow = 2
+    
+    ResistanceData_LeakageWaferIDColumn = 1
+    ResistanceData_LeakageDieColumn = 2
+    ResistanceData_LeakagePointColumn = 3
+    ResistanceData_LeakageValueColumn = 4
+    
+    ResistanceData_ResistanceWaferIDColumn = 1
+    ResistanceData_ResistanceDieColumn = 2
+    ResistanceData_ResistancePointColumn = 3
+    ResistanceData_ResistanceValueColumn = 4
+    ResistanceData_ResistanceNoGoodColumn = 5
+    
+    '-----------------------------
+    '
+    '------------------------------
+    Schedule = Resistance_Data(2, 2)
+    Timestamp = Resistance_Data(1, 1)
+    If UBound(Split(Resistance_Data(2, 1), "-")) > 0 Then Step = Split(Resistance_Data(2, 1), "-")(1)
+        
+    '--------------
+    ' Leakage Data
+    '--------------
+    LKG_Data = InStr(1, CSVFile, "LK") > 0
+    If LKG_Data Then
+            
+        '-------------------------
+        ' 1. Missing Leakage Data
+        '-------------------------
+        If RowInstance < 9 Then Remarks = Remarks & vbNewLine & "Missing LKG data"
+            
+        LeakageFailDueToMachine_Count = 0
+        LeakageFailDueToMaterial_Count = 0
+        For i = ResistanceData_StartRow To RowInstance
+                
+            LeakageValue = Resistance_Data(i, ResistanceData_LeakageValueColumn)
+                
+            '-------------------------------------
+            ' 2. Leakage Fail (Measurement Short)
+            '-------------------------------------
+            If LeakageValue > 100 Then
+                LeakageFailDueToMachine_Count = LeakageFailDueToMachine_Count + 1
+                
+                '-------------------------------
+                ' 3. Leakage Fail (RDL/Pattern)
+                '-------------------------------
+            ElseIf LeakageValue > 1 Then
+                    LeakageFailDueToMaterial_Count = LeakageFailDueToMaterial_Count + 1
+            End If
+    
+        Next
+        If LeakageFailDueToMachine_Count > 0 Then Remarks = Remarks & vbNewLine & "Leakage Fail (Measurement Short): " & LeakageFailDueToMachine_Count
+        If LeakageFailDueToMaterial_Count > 0 Then Remarks = Remarks & vbNewLine & "Leakage Fail (RDL Pattern): " & LeakageFailDueToMaterial_Count
+            
+        
+        
+    '-----------------
+    ' Resistance Data
+    '-----------------
+    Else
+        '--------------------
+        ' 1. Missing RS Data
+        '--------------------
+        If RowInstance < 9 Then Remarks = Remarks & vbNewLine & "Missing RS data"
+        
+        AbnormalRS_Count = 0
+        AbnormalOpenTest_Count = 0
+        
+        For i = ResistanceData_StartRow To RowInstance
+        
+            RS_Value = Resistance_Data(i, ResistanceData_LeakageValueColumn)
+            RS_Point = Resistance_Data(i, ResistanceData_ResistancePointColumn)
+            RS_NoGoodValue = Resistance_Data(i, ResistanceData_ResistanceNoGoodColumn)
+            
+            
+            If RS_Point = 1 And RS_NoGoodValue Then AbnormalRS_Count = AbnormalRS_Count + 1
+            If RS_Point = 2 And RS_NoGoodValue Then AbnormalOpenTest_Count = AbnormalOpenTest_Count + 1
+                  
+        Next
+        
+        If AbnormalRS_Count > 0 Then Remarks = Remarks & vbNewLine & "Abnormal RS: " & AbnormalRS_Count & "ea"
+        If AbnormalOpenTest_Count > 0 Then Remarks = Remarks & vbNewLine & "Abnormal Open Test: " & AbnormalOpenTest_Count & "ea"
+        
+    End If
+    Remarks = Right(Remarks, Len(Remarks) - 2)
+    
+    If Recipe = "" Then Recipe = "No Entry"
+    
+    Dim Data(1 To 3) As Variant
+    Data(1) = Timestamp     'Dispatch Time
+    Data(2) = Recipe        'Step
+    Data(3) = Remarks
+    
+    StringFormat = Timestamp & vbNewLine & Recipe & vbNewLine & Remarks
+    
+    functionReviewResistanceData = StringFormat
+    
+    
+End Function
+
+
 Private Function sad() As String
     
     '----------------------------
@@ -15,6 +207,10 @@ Private Function sad() As String
     ResistanceData_ResistanceDieColumn = 0
     ResistanceData_ResistancePointColumn = 0
     ResistanceData_ResistanceValueColumn = 0
+    
+    
+    
+    
     
     '------------------------------------------------------
     ' Get Resistance_Schedules/Resistance_ScheduleFilepath
@@ -44,10 +240,18 @@ Private Function sad() As String
     Resistance_CSVFiles = functionListSubdirectories(Resistance_Schedules, "filterCSVFile", True)
     'functionDisplayArray (Resistance_CSVFiles)
     
+    Dim Resistance_Schedule(0) As Variant
+    For Each Schedule In Resistance_Schedules
+        Resistance_Schedule(0) = Schedule
+        
+        Resistance_CSVFiles = functionListSubdirectories(Resistance_Schedules, "filterCSVFile", True)
+        
+    Next
+    
     
     Dim RowCount As Integer, ColumnCount As Integer
     Dim Resistance_Data() As String
-    For Each csvFile In Resistance_CSVFiles
+    For Each CSVFile In Resistance_CSVFiles
         
         ReDim Resistance_Data(1 To 20, 1 To 20)
         
@@ -55,7 +259,7 @@ Private Function sad() As String
         ' Parse Resistance_CSVFiles
         '---------------------------
         RowInstance = 0
-        For Each Row In Split(functionReadCSV(csvFile), "$")
+        For Each Row In Split(functionReadCSV(CSVFile), "$")
             
             RowInstance = RowInstance + 1
             ColumnInstance = 0
@@ -73,15 +277,16 @@ Private Function sad() As String
         '-----------------------------
         '
         '------------------------------
-        If UBound(Split(Resistance_Data(2, 2), ".")) > 0 Then Schedule = Split(Resistance_Data(2, 2), ".")(0)
-        If UBound(Split(Resistance_Data(2, 1), "-")) > 0 Then Step = Split(Resistance_Data(2, 1), "-")(1)
-        
+        'Sometime there is no data, so what to do?
+        Schedule = Resistance_Data(2, 2)
         Timestamp = Resistance_Data(1, 1)
+        
+        If UBound(Split(Resistance_Data(2, 1), "-")) > 0 Then Step = Split(Resistance_Data(2, 1), "-")(1)
         
         '--------------
         ' Leakage Data
         '--------------
-        LKG_Data = InStr(1, csvFile, "LKG") > 0
+        LKG_Data = InStr(1, CSVFile, "LK") > 0
         If LKG_Data Then
             
             '-------------------------
@@ -221,7 +426,7 @@ End Function
 
 Private Function functionReadCSV(ByVal Filename As String)
 
-    Dim FreeFileNumber As Integer, line As String, data As Variant, allData As Collection
+    Dim FreeFileNumber As Integer, line As String, Data As Variant, allData As Collection
     Set allData = New Collection
 
     FreeFileNumber = FreeFile()
