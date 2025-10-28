@@ -1,0 +1,340 @@
+'===============
+' FEATURE NEEDS
+'===============
+' 1. Image viewer (Defocus or not)
+' 2. Picture count
+
+
+
+
+Private Sub functionCreateScanResultsWorksheet()
+    
+    Dim wsInstance As Worksheet
+    Dim ScanResultsWorksheetDoesNotExist As Boolean
+    
+    ScanResultsWorksheetDoesNotExist = True
+    
+    For Each wsInstance In ThisWorkbook.Sheets
+        If wsInstance.Name = "Scan Results" Then
+            
+            ScanResultsWorksheetDoesNotExist = False
+            Exit For
+        End If
+    Next
+        
+    If ScanResultsWorksheetDoesNotExist Then
+        ThisWorkbook.Sheets.Add(After:=Sheets(1)).Name = "Scan Results"
+    End If
+    
+    Set wsScanResults = ThisWorkbook.Sheets("Scan Results")
+
+    Dim Headers(1 To 1, 1 To 16) As String
+    Headers(1, 1) = "Schedule"
+    Headers(1, 2) = "Step"
+    Headers(1, 3) = "Link"
+    For i = 1 To 13
+    
+        Headers(1, 3 + i) = "S" & Format(i, "00")
+         
+    Next
+
+    wsScanResults.Range("A1:P1").Value = Headers
+    
+
+End Sub
+
+
+
+Private Function filterRecentlyScanned(SubdirectoryName As String) As Boolean
+    
+    Filename = Split(SubdirectoryName, "\")(UBound(Split(SubdirectoryName, "\")))
+    
+    FileDate = FileDateTime(SubdirectoryName)
+    ScanTime = DateDiff("d", FileDate, Now)
+    
+    IsAFolder = (GetAttr(SubdirectoryName) And vbDirectory) = vbDirectory
+    
+    filterRecentlyScanned = Len(Filename) > 2 And ScanTime <= 30 And IsAFolder
+     
+End Function
+
+Private Function filterGeneral(SubfolderName As String) As Boolean
+    
+    Filename = Split(SubfolderName, "\")(UBound(Split(SubfolderName, "\")))
+    filterGeneral = Len(Filename) > 2
+    
+End Function
+
+Private Function filterKLA(SubfolderName As String) As Boolean
+    
+    Filename = Split(SubfolderName, "\")(UBound(Split(SubfolderName, "\")))
+    filterKLA = InStr(1, Filename, ".kla") > 0 And Len(Filename) > 2
+    
+End Function
+
+Private Sub functionDisplayArray(ByVal DisplayArray As Variant)
+
+    Display = ""
+    For Each Item In DisplayArray
+        Display = Display & Item & vbNewLine
+    Next
+    If Display <> "" Then Display = Left(Display, Len(Display) - 2)
+    MsgBox Display
+    
+End Sub
+
+Private Function functionCombineArray(ByVal Array1 As Variant, Array2 As Variant) As Variant
+
+    
+    Array1_Count = UBound(Array1) + 1
+    Array2_Count = UBound(Array2) + 1
+    
+    Dim CombinedArray() As Variant, CombinedArray_ElementCount As Integer
+    ReDim CombinedArray(1 To Array1_Count + Array2_Count)
+    
+    CombinedArray_ElementCount = 0
+    For Each Element In Array1
+    
+        CombinedArray_ElementCount = CombinedArray_ElementCount + 1
+        CombinedArray(CombinedArray_ElementCount) = Element
+        
+        
+    Next
+    
+    For Each Element In Array2
+    
+        CombinedArray_ElementCount = CombinedArray_ElementCount + 1
+        CombinedArray(CombinedArray_ElementCount) = Element
+        
+        
+    Next
+    functionCombineArray = CombinedArray
+End Function
+
+Private Sub ScanResults_CheckAll()
+    
+    functionCreateScanResultsWorksheet
+    ThisWorkbook.Sheets("Scan Results").Range("A2:P" & Rows.Count).Value = ""
+    
+    '============
+    ' CMIT CHECK
+    '============
+    Dim CMIt_Directory(0) As Variant
+    CMIt_Directory(0) = "\\10.16.207.237\6905\B6_Cmit"
+    CMIt_Directory(0) = "C:\Users\Sean\OneDrive\Desktop\B6_CMIt"
+    
+    '-------------------
+    ' Check each Recipe
+    '-------------------
+    CMIt_Recipes = ""
+    CMIt_Recipes = functionListSubdirectories(CMIt_Directory, "filterGeneral")
+    'functionDisplayArray (CMIt_Recipes)
+
+    '---------------------
+    ' Check each Schedule
+    '---------------------
+    CMIt_Schedules = ""
+    CMIt_Schedules = functionListSubdirectories(CMIt_Recipes, "filterRecentlyScanned")
+    'functionDisplayArray (CMIt_Schedules)
+
+    '==============
+    ' CAMTEK CHECK
+    '==============
+    Dim Camtek_Directory(0) As Variant
+    Camtek_Directory(0) = "C:\Users\Sean\OneDrive\Desktop\FX_Camtek"
+    
+    '--------------------
+    ' Check each Machine
+    '--------------------
+    Camtek_Machines = ""
+    Camtek_Machines = functionListSubdirectories(Camtek_Directory, "filterGeneral")
+    'functionDisplayArray (Camtek_Machines)
+    
+    '-------------------
+    ' Check each Recipe
+    '-------------------
+    Camtek_Recipes = ""
+    Camtek_Recipes = functionListSubdirectories(Camtek_Machines, "filterGeneral")
+    'functionDisplayArray (Camtek_Recipes)
+
+    '---------------------
+    ' Check each Schedule
+    '---------------------
+    Camtek_Schedules = ""
+    Camtek_Schedules = functionListSubdirectories(Camtek_Recipes, "filterRecentlyScanned")
+    'functionDisplayArray (Camtek_Schedules)
+    
+    Combined_Schedules = functionCombineArray(CMIt_Schedules, Camtek_Schedules)
+    'functionDisplayArray (Combined_Schedules)
+    
+    Dim ScheduleList(1 To 100, 1 To 16) As Variant, ScannedScheduleCount As Integer
+    ScannedScheduleCout = 0
+    
+    For Each Schedule In Combined_Schedules
+        
+        Schedule_LotID = Split(Schedule, "\")(UBound(Split(Schedule, "\")))
+        Schedule_Recipe = Split(Schedule, "\")(UBound(Split(Schedule, "\")) - 1)
+        Schedule_Step = Split(Schedule_Recipe, "-")(UBound(Split(Schedule_Recipe, "-")))
+        Included = False
+        
+        For i = 1 To ScannedScheduleCount
+            
+            Included = Schedule_LotID = ScheduleList(i, 1)
+            If Included Then
+                ScheduleList(i, 2) = Schedule_Step
+                ScheduleList(i, 3) = ScheduleList(i, 3) & "|" & Schedule
+                Exit For
+            End If
+        Next
+        If Not Included Then
+        
+            ScannedScheduleCount = ScannedScheduleCount + 1
+            ScheduleList(ScannedScheduleCount, 1) = Schedule_LotID
+            ScheduleList(ScannedScheduleCount, 2) = Schedule_Step
+            ScheduleList(ScannedScheduleCount, 3) = ScheduleList(ScannedScheduleCount, 3) & "|" & Schedule
+            
+            'ScheduleList(ScannedScheduleCount, 4) = Split("Hel
+        End If
+    Next
+       
+    
+    
+    Dim AddressList_Yellow As String
+    Dim AddressList_Green As String
+    Dim Scan_WaferKLACount(1 To 13) As Integer
+    
+    For i = 1 To ScannedScheduleCount
+        
+        'MsgBox "001"
+        ScheduleList(i, 3) = Right(ScheduleList(i, 3), Len(ScheduleList(i, 3)) - 1)
+        
+        
+        Scan_Paths = Split(ScheduleList(i, 3), "|")
+        Scan_Wafers = functionListSubdirectories(Scan_Paths, "filterGeneral")
+        Scan_KLAFiles = functionListSubdirectories(Scan_Wafers, "filterKLA")
+        
+        For j = 1 To 13
+            ScheduleList(i, 3 + j) = 0
+        Next
+        
+        'MsgBox "002"
+        ScheduleList(i, 3) = Replace(ScheduleList(i, 3), "|", vbNewLine)
+        
+        For Each KLA_File In Scan_KLAFiles
+            
+            SlotID = functionReviewKLA(KLA_File)
+            If SlotID > 0 Then
+                ScheduleList(i, 3 + SlotID) = ScheduleList(i, 3 + SlotID) + 1
+                
+                'MsgBox "003"
+                If ScheduleList(i, 3 + SlotID) > 1 Then
+                    AddressList_Yellow = AddressList_Yellow & "," & ThisWorkbook.Sheets("Scan Results").Range("D2").Offset(i - 1, SlotID - 1).Address
+                ElseIf ScheduleList(i, 3 + SlotID) = 1 Then
+                   AddressList_Green = AddressList_Green & "," & ThisWorkbook.Sheets("Scan Results").Range("D2").Offset(i - 1, SlotID - 1).Address
+                End If
+                
+            End If
+                
+            
+        Next
+        
+    Next
+    
+    
+    
+    
+    ThisWorkbook.Sheets("Scan Results").Range("A2:P" & 1 + ScannedScheduleCount).Value = ScheduleList
+    
+    
+    
+    If AddressList_Green <> "" Then
+        AddressList_Green = Right(AddressList_Green, Len(AddressList_Green) - 1)
+        ThisWorkbook.Sheets("Scan Results").Range(AddressList_Green).Interior.Color = RGB(102, 187, 106)
+    End If
+    If AddressList_Yellow <> "" Then
+        AddressList_Yellow = Right(AddressList_Yellow, Len(AddressList_Yellow) - 1)
+        ThisWorkbook.Sheets("Scan Results").Range(AddressList_Yellow).Interior.Color = RGB(255, 241, 118)
+    End If
+    
+    
+    
+End Sub
+
+Private Function functionReviewKLA(ByVal KLADirectory As String) As Integer
+    
+    KLA_String = functionReadCSV(KLADirectory)
+    If KLA_String = "" Then Exit Function
+    functionReviewKLA = Int(Mid(KLA_String, InStr(1, KLA_String, "Slot") + 5, 2))
+    
+    'MsgBox KLA_String
+    'MsgBox Int(Mid(KLA_String, InStr(1, KLA_String, "Slot") + 5, 2))
+End Function
+
+Private Function functionReadCSV(ByVal Filename As String)
+
+    Dim FreeFileNumber As Integer, line As String, Data As Variant, allData As Collection
+    Set allData = New Collection
+
+    FreeFileNumber = FreeFile()
+    Open Filename For Input As #FreeFileNumber
+
+    RawData = ""
+    Do Until EOF(FreeFileNumber)
+        Line Input #FreeFileNumber, Streamline
+        RawData = RawData & "$" & Streamline
+    Loop
+    If Len(RawData) > 0 Then RawData = Right(RawData, Len(RawData) - 1)
+    
+
+    Close FreeFileNumber
+    
+    functionReadCSV = RawData
+
+End Function
+
+Private Function functionListSubdirectories(ByVal Directories As Variant, Filter As String) As Variant
+    
+    'On Error GoTo ErrorHandling
+    
+    Subdirectories = ""
+    
+    For Each Directory In Directories
+    
+        '-----------------------------------
+        ' Check if Directory is a Directory
+        '-----------------------------------
+        DirectoryIsDirectory = (GetAttr(Directory) And vbDirectory) = vbDirectory
+        If DirectoryIsDirectory Then Subdirectory_Folder = Dir(Directory & "\", vbDirectory)
+        
+        
+        Do While Subdirectory_Folder <> ""
+                
+            Subdirectories = Subdirectories & "|" & Directory & "\" & Subdirectory_Folder
+            Subdirectory_Folder = Dir
+                
+        Loop
+        
+    Next
+    If Subdirectories <> "" Then Subdirectories = Right(Subdirectories, Len(Subdirectories) - 1)
+    'MsgBox Replace(Subdirectories, "|", vbNewLine)
+    
+    FilteredSubdirectories = ""
+    For Each Subdirectory In Split(Subdirectories, "|")
+     '   MsgBox Subdirectory
+        PassFilter = Application.Run(Filter, Subdirectory)
+        If PassFilter Then FilteredSubdirectories = FilteredSubdirectories & "|" & Subdirectory
+    Next
+    
+    'MsgBox "Filteredsubs: " & FilteredSubdirectories
+    If FilteredSubdirectories <> "" Then FilteredSubdirectories = Right(FilteredSubdirectories, Len(FilteredSubdirectories) - 1)
+    'MsgBox Replace(FilteredSubdirectories, "|", vbNewLine)
+    
+    functionListSubdirectories = Split(FilteredSubdirectories, "|")
+    
+    Exit Function
+    
+'ErrorHandling:
+    'MsgBox "Error encountered." & vbNewLine & "[" & Directory & "]"
+    
+End Function
+
