@@ -4,6 +4,31 @@
 ' 1. Image viewer (Defocus or not)
 ' 2. Picture count
 
+Private Sub Worksheet_Change(ByVal Target As Range)
+    
+    
+    If ThisWorkbook.Sheets("Scan Results").Range("R2").Value = True Then Exit Sub
+    For Each Cell In Target
+        
+        If Not Intersect(Target, ThisWorkbook.Sheets("Scan Results").Range("A2")) Is Nothing Then
+            ThisWorkbook.Sheets("Scan Results").Range("R2").Value = True
+            ThisWorkbook.Sheets("Scan Results").Range("A2").Value = UCase(ThisWorkbook.Sheets("Scan Results").Range("A2").Value)
+       '     MsgBox ThisWorkbook.Sheets("Scan Results").Range("A2").Value
+            'modScanMonitoring.ScanResults_CheckAll ThisWorkbook.Sheets("Scan Results").Range("A2").Value
+            modScanMonitoring.ScanResults_CheckAll
+            
+            ThisWorkbook.Sheets("Scan Results").Range("R2").Value = False
+            Exit For
+        End If
+        
+    Next
+    
+    
+    'If Union(Target,Thisworkbook.Sheets("Scan Results").Range("A2")
+    
+    
+End Sub
+
 
 
 
