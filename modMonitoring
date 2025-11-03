@@ -90,6 +90,9 @@ Private Function functionCombineArray(ByVal Array1 As Variant, Array2 As Variant
     Array2_Count = UBound(Array2) + 1
     
     Dim CombinedArray() As Variant, CombinedArray_ElementCount As Integer
+    If Array1_Count + Array2_Count = 0 Then Exit Function
+    
+    
     ReDim CombinedArray(1 To Array1_Count + Array2_Count)
     
     CombinedArray_ElementCount = 0
@@ -108,13 +111,19 @@ Private Function functionCombineArray(ByVal Array1 As Variant, Array2 As Variant
         
         
     Next
+    
     functionCombineArray = CombinedArray
+    
 End Function
 
-Private Sub ScanResults_CheckAll()
+Public Sub ScanResults_CheckAll(Optional ByVal Schedules As String = "")
     
     functionCreateScanResultsWorksheet
     ThisWorkbook.Sheets("Scan Results").Range("A2:P" & Rows.Count).Value = ""
+    ThisWorkbook.Sheets("Scan Results").Range("A2:P" & Rows.Count).Interior.Color = xlNone
+    
+    'Schedules = ThisWorkbook.Sheets("Scan Results")
+    'Schedules = "35LMAB"
     
     '============
     ' CMIT CHECK
@@ -126,15 +135,15 @@ Private Sub ScanResults_CheckAll()
     '-------------------
     ' Check each Recipe
     '-------------------
-    CMIt_Recipes = ""
+    'CMIt_Recipes = ""
     CMIt_Recipes = functionListSubdirectories(CMIt_Directory, "filterGeneral")
     'functionDisplayArray (CMIt_Recipes)
 
     '---------------------
     ' Check each Schedule
     '---------------------
-    CMIt_Schedules = ""
-    CMIt_Schedules = functionListSubdirectories(CMIt_Recipes, "filterRecentlyScanned")
+    'CMIt_Schedules = ""
+    CMIt_Schedules = functionListSubdirectories(CMIt_Recipes, "filterRecentlyScanned", Schedules)
     'functionDisplayArray (CMIt_Schedules)
 
     '==============
@@ -146,29 +155,35 @@ Private Sub ScanResults_CheckAll()
     '--------------------
     ' Check each Machine
     '--------------------
-    Camtek_Machines = ""
+    'Camtek_Machines = ""
     Camtek_Machines = functionListSubdirectories(Camtek_Directory, "filterGeneral")
     'functionDisplayArray (Camtek_Machines)
     
     '-------------------
     ' Check each Recipe
     '-------------------
-    Camtek_Recipes = ""
+    'Camtek_Recipes = ""
     Camtek_Recipes = functionListSubdirectories(Camtek_Machines, "filterGeneral")
     'functionDisplayArray (Camtek_Recipes)
 
     '---------------------
     ' Check each Schedule
     '---------------------
-    Camtek_Schedules = ""
-    Camtek_Schedules = functionListSubdirectories(Camtek_Recipes, "filterRecentlyScanned")
+    'Camtek_Schedules = ""
+    Camtek_Schedules = functionListSubdirectories(Camtek_Recipes, "filterRecentlyScanned", Schedules)
+    'Camtek_Schedules = functionListChildren(Camtek_Recipes, "filterRecentlyScanned", "35LMAB")
     'functionDisplayArray (Camtek_Schedules)
     
+    Dim Combined_Schedules As Variant
     Combined_Schedules = functionCombineArray(CMIt_Schedules, Camtek_Schedules)
+    If IsEmpty(Combined_Schedules) Then Exit Sub
     'functionDisplayArray (Combined_Schedules)
     
     Dim ScheduleList(1 To 100, 1 To 16) As Variant, ScannedScheduleCount As Integer
     ScannedScheduleCout = 0
+    
+    
+    
     
     For Each Schedule In Combined_Schedules
         
@@ -292,7 +307,7 @@ Private Function functionReadCSV(ByVal Filename As String)
 
 End Function
 
-Private Function functionListSubdirectories(ByVal Directories As Variant, Filter As String) As Variant
+Private Function functionListChildren(ByVal Directories As Variant, PropertyFilter As String, Optional ByVal TextFilter As String = "", Optional DisplayAsFilepath As Boolean = True) As Variant
     
     'On Error GoTo ErrorHandling
     
@@ -304,12 +319,16 @@ Private Function functionListSubdirectories(ByVal Directories As Variant, Filter
         ' Check if Directory is a Directory
         '-----------------------------------
         DirectoryIsDirectory = (GetAttr(Directory) And vbDirectory) = vbDirectory
-        If DirectoryIsDirectory Then Subdirectory_Folder = Dir(Directory & "\", vbDirectory)
         
+        If DirectoryIsDirectory Then
+            'MsgBox Directory & "\" & TextFilter & "*"
+            Subdirectory_Folder = Dir(Directory & "\" & TextFilter & "*", vbDirectory)
+        End If
         
         Do While Subdirectory_Folder <> ""
-                
-            Subdirectories = Subdirectories & "|" & Directory & "\" & Subdirectory_Folder
+            
+            
+            Subdirectories = Subdirectories & "|" & IIf(DisplayAsFilepath, Directory & "\", "") & Subdirectory_Folder
             Subdirectory_Folder = Dir
                 
         Loop
@@ -321,7 +340,55 @@ Private Function functionListSubdirectories(ByVal Directories As Variant, Filter
     FilteredSubdirectories = ""
     For Each Subdirectory In Split(Subdirectories, "|")
      '   MsgBox Subdirectory
-        PassFilter = Application.Run(Filter, Subdirectory)
+        PassFilter = Application.Run(PropertyFilter, Subdirectory)
+        If PassFilter Then FilteredSubdirectories = FilteredSubdirectories & "|" & Subdirectory
+    Next
+    
+    'MsgBox "Filteredsubs: " & FilteredSubdirectories
+    If FilteredSubdirectories <> "" Then FilteredSubdirectories = Right(FilteredSubdirectories, Len(FilteredSubdirectories) - 1)
+    'MsgBox Replace(FilteredSubdirectories, "|", vbNewLine)
+    
+    functionListChildren = Split(FilteredSubdirectories, "|")
+    
+    Exit Function
+    
+'ErrorHandling:
+    'MsgBox "Error encountered." & vbNewLine & "[" & Directory & "]"
+    
+End Function
+
+
+Private Function functionListSubdirectories(ByVal Directories As Variant, PropertyFilter As String, Optional ByVal TextFilter As String = "", Optional DisplayAsFilepath As Boolean = True) As Variant
+    
+    'On Error GoTo ErrorHandling
+    
+    Subdirectories = ""
+    
+    For Each Directory In Directories
+    
+        '-----------------------------------
+        ' Check if Directory is a Directory
+        '-----------------------------------
+        DirectoryIsDirectory = (GetAttr(Directory) And vbDirectory) = vbDirectory
+        If DirectoryIsDirectory Then Subdirectory_Folder = Dir(Directory & "\" & TextFilter & "*", vbDirectory)
+        
+        
+        Do While Subdirectory_Folder <> ""
+            
+            
+            Subdirectories = Subdirectories & "|" & IIf(DisplayAsFilepath, Directory & "\", "") & Subdirectory_Folder
+            Subdirectory_Folder = Dir
+                
+        Loop
+        
+    Next
+    If Subdirectories <> "" Then Subdirectories = Right(Subdirectories, Len(Subdirectories) - 1)
+    'MsgBox Replace(Subdirectories, "|", vbNewLine)
+    
+    FilteredSubdirectories = ""
+    For Each Subdirectory In Split(Subdirectories, "|")
+     '   MsgBox Subdirectory
+        PassFilter = Application.Run(PropertyFilter, Subdirectory)
         If PassFilter Then FilteredSubdirectories = FilteredSubdirectories & "|" & Subdirectory
     Next
     
