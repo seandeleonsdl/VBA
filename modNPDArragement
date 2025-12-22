@@ -1,0 +1,149 @@
+
+
+
+Private Sub subFilterSortNPD()
+
+    '-------------------------------
+    ' Counts the number of NPD Lots
+    '-------------------------------
+    Dim LotCount As Integer, WIPCount As Double
+    LotCount = ThisWorkbook.Sheets("NPD").Range("A" & Rows.Count).End(xlUp).Row
+
+    Dim CustomerDatabase(1 To 10, 1 To 3) As Variant, CustomerCount As Integer
+    CustomerCount = 0
+    
+    Dim LotDatabase(1 To 100) As String
+    LoadedLotCount = 0
+    
+    '-------------------------------
+    ' Updates the list of Customers
+    '-------------------------------
+    For i = 1 To LotCount
+        
+        NPD_ScheduleID = Replace(ThisWorkbook.Sheets("NPD").Range("A" & i).Value2, " ", "")
+        NPD_CustomerCode = Mid(NPD_ScheduleID, 3, 2)
+        
+        If NPD_ScheduleID = "" Then GoTo SkipLot
+        
+        '-------------------------------------------------------
+        ' Check if NPD_ScheduleID already loaded in LotDatabase
+        '-------------------------------------------------------
+        LotAlreadyLoaded = False
+        For j = 1 To LoadedLotCount
+        
+            LotAlreadyLoaded = NPD_ScheduleID = LotDatabase(j)
+            If LotAlreadyLoaded Then Exit For
+            
+        Next
+        
+        If LotAlreadyLoaded Then GoTo SkipLot
+        
+        '-----------------------------------------------------
+        ' If not yet loaded, load NPD_ScheduleID in LotDabase
+        '-----------------------------------------------------
+        LoadedLotCount = LoadedLotCount + 1
+        LotDatabase(LoadedLotCount) = NPD_ScheduleID
+         
+        '--------------------------------------------------------------
+        ' Check if NPD_CustomerCode already loaded in CustomerDatabase
+        '--------------------------------------------------------------
+        CustomerAlreadyLoaded = False
+        For j = 1 To CustomerCount
+            
+            CustomerAlreadyLoaded = NPD_CustomerCode = CustomerDatabase(j, 1)
+            If CustomerAlreadyLoaded Then
+                CustomerDatabase(j, 2) = CustomerDatabase(j, 2) + 1
+                Exit For
+            End If
+            
+        Next
+        
+        '--------------------------------------------------------------
+        ' If not yet loaded, load NPD_CustomerCode in CustomerDatabase
+        '--------------------------------------------------------------
+        If Not CustomerAlreadyLoaded Then
+            CustomerCount = CustomerCount + 1
+            CustomerDatabase(CustomerCount, 1) = NPD_CustomerCode
+            CustomerDatabase(CustomerCount, 2) = 1 'Maximum Count
+            CustomerDatabase(CustomerCount, 3) = 0 'Instance Count
+        End If
+
+SkipLot:
+
+    Next
+    
+    
+    Dim NPDDatabase(100, 1) As String
+    For i = 1 To LoadedLotCount
+        
+        NPD_ScheduleID = LotDatabase(i)
+        NPD_CustomerCode = Mid(NPD_ScheduleID, 3, 2)
+        
+        CumulativeCount = 0
+        
+        For j = 1 To CustomerCount
+            If j > 1 Then CumulativeCount = CumulativeCount + CustomerDatabase(j - 1, 2)
+            
+            If CustomerDatabase(j, 1) = NPD_CustomerCode Then
+                
+                'MsgBox NPD_ScheduleID & " " & CumulativeCount & " + " & CustomerDatabase(j, 3)
+                NPDDatabase(CumulativeCount + CustomerDatabase(j, 3), 0) = NPD_ScheduleID
+                CustomerDatabase(j, 3) = CustomerDatabase(j, 3) + 1
+                
+            End If
+                        
+        Next
+
+    Next
+
+    ThisWorkbook.Sheets(1).Range("B2:B100").Value = NPDDatabase
+    
+End Sub
+
+Private Sub subCheckWIP()
+
+    '-------------------------------
+    ' Counts the number of NPD Lots
+    '-------------------------------
+    Dim Arrangement_Count As Integer, Arrangement_Database As Variant
+    Arrangement_Count = ThisWorkbook.Sheets("NPD").Range("B" & Rows.Count).End(xlUp).Row - 1
+    ReDim Arrangement_Database(1 To Arrangement_Count, 1 To 3)
+    
+    
+    
+    Dim WIP_Count As Integer
+    WIP_Count = ThisWorkbook.Sheets("WIP").Range("A" & Rows.Count).End(xlUp).Row - 1
+    
+    
+    For i = 1 To LotCount
+        Arrangement_ScheduleID = ThisWorkbook.Sheets("NPD").Range("B2").Offset(i - 1, 0).Value2
+        
+        For j = 1 To WIP_Count
+            WIP_ScheduleID = ThisWorkbook.Sheets("WIP").Range("A1").Offset(j - 1, 0).Value2
+            WIP_ProcessPlant = ThisWorkbook.Sheets("WIP").Range("A1").Offset(j - 1, 0).Value2
+            
+            
+        Next
+        
+        
+        
+
+    
+    Next
+    
+    
+
+End Sub
+
+
+Private Sub subCheckFinalSteps()
+
+    
+
+
+End Sub
+
+
+
+
+
