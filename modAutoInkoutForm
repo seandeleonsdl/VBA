@@ -1,24 +1,61 @@
-'#-------------------
-' Form AutoInkut
+
 
 
 Private checkStep() As Class1
 
 
+Private Sub funcGetSubfolders()
+    
+    
+    
 
-Private Sub Label11_Click()
+    Dim startPath As String
+    startPath = "C:\Users\Sean\Desktop\bumping2"
+    ThisWorkbook.Sheets("Subfolders").Cells.Clear
+    subGetSubfolders startPath, 1
+    
+    
+    Dim SubfolderCount As Integer
+    SubfolderCount = ThisWorkbook.Sheets("Subfolders").Range("B" & Rows.count).End(xlUp).Row
+    
+    For i = 1 To SubfolderCount
+        Directory = ThisWorkbook.Sheets("Subfolders").Range("B1").Offset(i - 1, 0).Value
+        Filename = Dir(ThisWorkbook.Sheets("Subfolders").Range("B1").Offset(i - 1, 0).Value & "\75QM81B001*")
+        If Filename <> "" Then
+            MsgBox Directory & vbNewLine & Filename
+        End If
+    Next
+    
 
 End Sub
 
-Private Sub TextBox1_Change()
 
+Private Sub subGetSubfolders(ByVal Directory As String, ByRef r As Long)
+
+    Dim fso As Object
+    Dim ParentFolder As Object
+    Dim Subfolder As Object
+
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    Set ParentFolder = fso.GetFolder(Directory)
+    
+    For Each Subfolder In ParentFolder.Subfolders
+        ThisWorkbook.Sheets("Subfolders").Cells(r, 1).Value = Subfolder.Name
+        ThisWorkbook.Sheets("Subfolders").Cells(r, 2).Value = Subfolder.Path
+        'Stream = Stream & "|" & Subfolder.Path
+        r = r + 1
+        subGetSubfolders Subfolder.Path, r
+    Next Subfolder
+        
 End Sub
 
-Private Sub txtInkoutMapDirectory_Change()
 
-End Sub
+
+
 
 Private Sub UserForm_Initialize()
+        
+'    funcGetSubfolders
         
     '------------------------
     ' 1.) Program properties
@@ -473,10 +510,23 @@ Private Function GetMapList(ByVal Directory As String)
     
 End Function
 
-
+Private Sub subFilterMaps()
+    Dim SubfolderCount As Integer
+    SubfolderCount = ThisWorkbook.Sheets("Subfolders").Range("B" & Rows.count).End(xlUp).Row
+    
+    For i = 1 To SubfolderCount
+    
+    
+    Next
+    
+End Sub
 
 Private Sub txtInkoutSchedules_Change()
 
+    For Each Sched In Split(txtInkoutSchedules.Value, vbNewLine)
+        WW = "W25" & Left(Sched, 2)
+        'MsgBox txtInkoutMapDirectory.Value & "\" & WW & "\" & Sched
+    Next
 
     Dim DebugMode As Boolean
     DebugMode = True
@@ -525,7 +575,8 @@ Private Sub txtInkoutSchedules_Change()
     ScheduleCount = UBound(ScheduleList) + 1
     WorkWeek = Right(Year(Now), 2)
     
-    InkoutMapDirectory = Me.txtInkoutMapDirectory.Value
+    
+    
     
     Dim StepList() As Variant, StepCount As Integer
     ReDim StepList(1 To PROPERTIES_MaxStepCount)
@@ -550,7 +601,7 @@ Private Sub txtInkoutSchedules_Change()
     InkoutMapWorkWeek = Right(Year(Now) - 1, 2)
     
     InkoutMapScheduleDigits = Left(Schedule, 2)
-    InkoutMapDirectory = Me.txtInkoutMapDirectory & "\W" & InkoutMapWorkWeek & InkoutMapScheduleDigits
+    InkoutMapDirectory = Me.txtInkoutMapDirectory.Value & "\W" & InkoutMapWorkWeek & InkoutMapScheduleDigits
     
     For i = 1 To ScheduleCount
         For j = 1 To PROPERTIES_MaxStepCount
@@ -565,29 +616,42 @@ Private Sub txtInkoutSchedules_Change()
     RunLog(1, 1) = "001 Getting list of steps"
     For i = 0 To UBound(ScheduleList)
         
-        
         'Error proofing; adds if the inkoutmap folder cannot be found
         
         StepFolder = Dir(InkoutMapDirectory & "\" & ScheduleList(i) & "\", vbDirectory)
-        If StepFolder = "" Then Me.Controls("lblRemarks_" & Format(i + 1, "00")).Caption = "Bumping2 Folder not found"
+        If StepFolder = "" Then
+            Me.Controls("lblRemarks_" & Format(i + 1, "00")).Caption = "Bumping2 Folder not found"
+            GoTo SkipLot
+        End If
         
-        MsgBox "entering dowhile"
+        'MsgBox "entering dowhile"
+        'Entry = ThisWorkbook.Sheets("Subfolders").Range("B" & Rows.count).End(xlUp).Row
+        subGetSubfolders InkoutMapDirectory & "\" & ScheduleList(i), 1
+        
+        
+        
         Directories = ""
         Do While StepFolder <> ""
             Directories = Directories & "|" & InkoutMapDirectory & "\" & ScheduleList(i) & "\" & StepFolder
             StepFolder = Dir
         Loop
+        Directories = Right(Directories, Len(Directories) - 1)
+        
+        
         
         
         Me.Controls("LabelBackground_" & Format(i + 1, "00")).Visible = True
         
         
-        If Directories <> "" Then
-            Directories = Right(Directories, Len(Directories) - 1)
-        Else
-            If StepFolder = "" Then Me.Controls("lblRemarks_" & Format(i + 1, "00")).Caption = "Bumping2 Folder empty"
-            GoTo SkipLot
-        End If
+        'If Directories <> "" Then
+            
+        '    Directories = Right(Directories, Len(Directories) - 1)
+            
+        'Else
+        '    If StepFolder = "" Then Me.Controls("lblRemarks_" & Format(i + 1, "00")).Caption = "Bumping2 Folder empty"
+        '    GoTo SkipLot
+        'End If
+        
         
         For Each StepFolder In Split(Directories, "|")
         
@@ -597,17 +661,20 @@ Private Sub txtInkoutSchedules_Change()
             'IsStepFolder = UCase(StepFolder) <> "ORG"
             'IsStepFolder = StepFolder <> "AEI"
             StepFolderName = Split(StepFolder, "\")(UBound(Split(StepFolder, "\")))
-            MsgBox "step folder: " & StepFolder
+            
+            
+            'MsgBox "step folder: " & StepFolder
+            
             IsStepFolder = (GetAttr(StepFolder) And vbDirectory) = vbDirectory
             IsStepFolder = IsStepFolder And Len(StepFolderName) >= 4
             
-            MsgBox "StepFolderName: " & StepFolderName & "Is Step Folder? " & IsStepFolder
+            'MsgBox "StepFolderName: " & StepFolderName & "Is Step Folder? " & IsStepFolder
             
             'If (GetAttr(folderPath & item) And vbDirectory) = vbDirectory T
             
-            MsgBox "enteringfing if isstep"
+            'MsgBox "enteringfing if isstep"
             If IsStepFolder Then
-                MsgBox "this is running " & StepFolder
+                'MsgBox "this is running " & StepFolder
                 '---------------------------------------------------------------------------
                 ' Is this StepFolder in StepListOfSteps? If NotIncluded, add it to the list
                 '---------------------------------------------------------------------------
@@ -621,7 +688,7 @@ Private Sub txtInkoutSchedules_Change()
                 
                 For j = 1 To StepCount
                     
-                    MsgBox StepList(j)
+                '    MsgBox StepList(j)
                     Me.Controls("checkStep_" & Format(i + 1, "00") & "_" & Format(j, "00")).Caption = StepList(j)
                           
                     If StepList(j) = StepFolder Then
@@ -638,6 +705,7 @@ Private Sub txtInkoutSchedules_Change()
                 Files = Files & "\" & StepFolder
             End If
         Next
+        
 SkipLot:
     Next
     
