@@ -1,167 +1,78 @@
-
-
-
-
 Private checkStep() As Class1
 
+Private Function funcWorksheetExists(wsName As String, Optional wb As Workbook) As Boolean
+    Dim ws As Worksheet
+    If wb Is Nothing Then Set wb = ThisWorkbook
 
+    On Error Resume Next
+    Set ws = wb.Worksheets(wsName)
+    On Error GoTo 0
 
-Private Sub Label11_Click()
+    funcWorksheetExists = Not ws Is Nothing
+End Function
 
-End Sub
+Private Function funcInitializeWorksheet_Settings()
 
-Private Sub TextBox1_Change()
-
-End Sub
-
-Private Sub txtInkoutMapDirectory_Change()
-
-End Sub
-
-Private Sub UserForm_Initialize()
-        
-    '------------------------
-    ' 1.) Program properties
-    '------------------------
-    PROPERTIES_PanelMapDirectory = ThisWorkbook.Sheets(1).Range("C2").Value2
-    PROPERTIES_InkoutMapDirectory = ThisWorkbook.Sheets(1).Range("C3").Value2
-    PROPERTIES_MergeMapDirectory = ThisWorkbook.Sheets(1).Range("C4").Value2
-    PROPERTIES_MaxScheduleCount = ThisWorkbook.Sheets(1).Range("C5").Value2
-    PROPERTIES_MaxStepCount = ThisWorkbook.Sheets(1).Range("C6").Value2
     
-    ReDim checkStep(1 To PROPERTIES_MaxScheduleCount, 1 To PROPERTIES_MaxStepCount)
-    ReDim labelSchedule(1 To PROPERTIES_MaxScheduleCount) As Object
-    ReDim LABEL_ScheduleBackground(1 To PROPERTIES_MaxScheduleCount) As Object
+    Dim WorksheetHeaders(1 To 5, 1 To 2) As String
+    If Not funcWorksheetExists("Settings") Then
     
-    Me.txtPanelMapDirectory = PROPERTIES_PanelMapDirectory
-    Me.txtInkoutMapDirectory = PROPERTIES_InkoutMapDirectory
-    Me.txtMergeMapDirectory = PROPERTIES_MergeMapDirectory
-    
-    '--------------------------------
-    ' 2.) Set-up userform aesthetics
-    '--------------------------------
-    Me.BackColor = RGB(252, 252, 252)
-    Me.Label7.BackColor = RGB(220, 234, 247)
-    Me.lblBackground.BackColor = RGB(240, 240, 240)
-    
-    
-    For i = 1 To PROPERTIES_MaxScheduleCount
+        Dim worksheetSettings As Worksheet
+        Set worksheetSettings = ThisWorkbook.Sheets.Add
+        worksheetSettings.Name = "Settings"
         
-        '----------------------
-        ' 3.) Set-up schedules
-        '--------------------------
-        LabelName = "labelSchedule_" & Format(i, "00")
-        Set LABEL_ScheduleBackground(i) = Me.Controls.Add("Forms.Label.1", "LabelBackground_" & Format(i, "00"), True)
-        Set labelSchedule(i) = Me.Controls.Add("Forms.Label.1", LabelName, True)
+        WorksheetHeaders(1, 1) = "SETTINGS"
+        WorksheetHeaders(2, 1) = "Panel Map Directory"
+        WorksheetHeaders(3, 1) = "Inkout Map Directory"
+        WorksheetHeaders(4, 1) = "Max Schedule Count"
+        WorksheetHeaders(4, 1) = "Max Step Count"
         
-        '----------------
-        ' a.) Dimensions
-        '----------------
-        LABEL_ScheduleBackground(i).Width = 65
-        LABEL_ScheduleBackground(i).Height = 18
+        WorksheetHeaders(1, 2) = "VALUES"
+        'WorksheetHeaders(2, 1) = "Panel Map Directory"
+        'WorksheetHeaders(3, 1) = "Inkout Map Directory"
+        'WorksheetHeaders(4, 1) = "Max Schedule Count"
+        'WorksheetHeaders(4, 1) = "Max Step Count"
         
-        labelSchedule(i).Width = 65
+        ThisWorkbook.Sheets("Settings").Cells.Font.Name = "Arial"
+        ThisWorkbook.Sheets("Settings").Cells.Font.Size = "Arial"
         
-        '--------------
-        ' b.) Position
-        '--------------
-        LABEL_ScheduleBackground(i).Left = Me.lblScheduleBackground.Left
-        LABEL_ScheduleBackground(i).Top = Me.lblScheduleBackground.Top + Me.lblScheduleBackground.Height + 6 + 24 * (i - 1)
+        ThisWorkbook.Sheets("Settings").Range("A1:A5").Value = WorksheetHeaders
         
-        labelSchedule(i).Left = Me.lblScheduleBackground.Left + 6
-        labelSchedule(i).Top = Me.lblScheduleBackground.Top + Me.lblScheduleBackground.Height + 6 + 4 + 24 * (i - 1)
-        
-        '-------------
-        ' c.) Styling
-        '-------------
-        LABEL_ScheduleBackground(i).BackColor = RGB(240, 240, 240)
-        LABEL_ScheduleBackground(i).Visible = False
-        
-        labelSchedule(i).BackStyle = fmBackStyleTransparent
-        labelSchedule(i).Caption = ""
-        labelSchedule(i).Font.Name = "Courier New"
-        labelSchedule(i).Font.Size = 8
-        
-        
-        For j = 1 To PROPERTIES_MaxStepCount
-        
-            checkboxName = "checkStep_" & Format(i, "00") & "_" & Format(j, "00")
-            Set checkboxInstance = Me.Controls.Add("Forms.Label.1", checkboxName, True)
-            
-            '----------------
-            ' a.) Dimensions
-            '----------------
-            checkboxInstance.Width = 30
-            checkboxInstance.Height = 18
-            
-            '--------------
-            ' b.) Position
-            '--------------
-            checkboxInstance.Left = LABEL_ScheduleBackground(i).Left + LABEL_ScheduleBackground(i).Width + 6 + (checkboxInstance.Width + 6) * (j - 1)
-            checkboxInstance.Top = LABEL_ScheduleBackground(i).Top
-            
-            '-------------
-            ' c.) Styling
-            '-------------
-            checkboxInstance.SpecialEffect = fmButtonEffectFlat
-            checkboxInstance.BackColor = RGB(240, 240, 240)
-            checkboxInstance.ForeColor = RGB(255, 255, 255)
-            checkboxInstance.Font.Name = "Courier New"
-            checkboxInstance.Font.Size = 8
-            checkboxInstance.Font.Bold = True
-            checkboxInstance.Caption = ""
-            If i > 1 Then checkboxInstance.Visible = False
-            
-            Set checkStep(i, j) = New Class1
-            Set checkStep(i, j).checkbox = checkboxInstance
-            Set checkStep(i, j).Range = ThisWorkbook.Sheets(2).Range("B2").Offset(i - 1, j - 1)
-            checkStep(i, j).Row = i
-            
-            '----------------
-            ' d.)
-            '---------------
-            'toggleYes = Me.Controls.Add("Forms.Label.1", checkboxName, True)
-            
-        
-        Next
-        
-    Next
-    
-    LABEL_ScheduleBackground(1).Visible = True
-    For j = 1 To PROPERTIES_MaxStepCount
-        checkStep(1, j).checkbox.Visible = True
-        
-    Next
+    End If
     
     
     
-End Sub
+End Function
 
 
 
-Public Function CountF30(ByVal Schedule As String, ByVal Step As String)
-    
-    
-    
+
+
+
+
+
+Public Function CountF30(ByVal Filename As String)
+        
     '-----------------
     ' Get Directories
     '-----------------
     '(1) Get Directories
-    InkoutMapWorkWeek = Right(Year(Now), 2)
-    InkoutMapScheduleDigits = Left(Schedule, 2)
-    InkoutMapDirectory = Me.txtInkoutMapDirectory & "\W" & InkoutMapWorkWeek & InkoutMapScheduleDigits
+    'InkoutMapWorkWeek = Right(Year(Now), 2)
+    'InkoutMapScheduleDigits = Left(Schedule, 2)
+    'InkoutMapDirectory = Me.txtInkoutMapDirectory & "\W" & InkoutMapWorkWeek & InkoutMapScheduleDigits
     
     '(2) Get Map List from Bumping2 and PanelMap
-    MapList = GetMapList(InkoutMapDirectory & "\" & Schedule & "\" & CStr(Step) & "\")
+    'MapList = GetMapList(InkoutMapDirectory & "\" & Schedule & "\" & CStr(Step) & "\")
     
-    For Each InkoutMap In MapList
+    'For Each InkoutMap In MapList
         
-        InkoutMapID = GetWaferID(InkoutMap)
+        'InkoutMapID = GetWaferID(InkoutMap)
         
         fileNum = FreeFile
-        filePath = InkoutMapDirectory & "\" & Schedule & "\" & CStr(Step) & "\" & InkoutMap
-        ThisWorkbook.Sheets(1).Range("A15").Value = filePath
-        Open filePath For Input As #fileNum
+        'filePath = InkoutMapDirectory & "\" & Schedule & "\" & CStr(Step) & "\" & InkoutMap
+        ThisWorkbook.Sheets(1).Range("A15").Value = Filename
+        'MsgBox "Filename is " & Filename
+        Open Filename For Input As #fileNum
         fileContent = ""
         
         Do Until EOF(fileNum)
@@ -171,10 +82,10 @@ Public Function CountF30(ByVal Schedule As String, ByVal Step As String)
         Close #fileNum
         
         DefectCount = CountString(fileContent, "019") + CountString(fileContent, "020") + CountString(fileContent, "021") + CountString(fileContent, "030")
-        CountF30 = CountF30 & "S" & InkoutMapID & "-" & DefectCount & "ea,"
+        CountF30 = DefectCount
         '(6) Sort through each PanelMap
          
-    Next
+    'Next
     
     
 
@@ -315,7 +226,7 @@ End Sub
 
 
 
-Private Function GetWaferID(ByVal Filename As String) As Integer
+Public Function GetWaferID(ByVal Filename As String) As Integer
 
     Filename = Replace(Filename, ".txt", "")
     Filename = Replace(Filename, ".", "-")
@@ -327,7 +238,7 @@ Private Function GetWaferID(ByVal Filename As String) As Integer
 
 End Function
 
-Private Function MergeMap(ByVal PanelMapFilename As String, InkoutMapFilename As String) As String
+Public Function MergeMap(ByVal PanelMapFilename As String, InkoutMapFilename As String) As String
     
     filePath = Filename
     fileNum = FreeFile
@@ -358,54 +269,40 @@ Private Function MergeMap(ByVal PanelMapFilename As String, InkoutMapFilename As
     InkoutMapFileContent = Right(InkoutMapFileContent, Len(InkoutMapFileContent) - 2)
     
     
-    'MsgBox "PanelMapContent:" & vbNewLine & PanelMapFileContent
-    'MsgBox "InkoutMapFileContent:" & vbNewLine & InkoutMapFileContent
-    
-    
     '-------------------------
     ' Merge Map
     '-------------------------
     
     
+    PanelMapIndex = InStr(1, PanelMapFileContent, "ROWDATA:")
+    InkoutMapIndex = InStr(1, InkoutMapFileContent, "ROWDATA:")
+    IndexOffset = PanelMapIndex - InkoutMapIndex
     
     Index = InStr(1, InkoutMapFileContent, "030")
-    
+    MsgBox "Ongoing merge"
     Do While Index > 0
         
-        DefectCode = Mid(PanelMapFileContent, Index, 3)
+        DefectCode = Mid(PanelMapFileContent, Index + IndexOffset, 3)
+        MsgBox DefectCode
         If DefectCode = "000" Then
             'MsgBox "BEFORE:" & vbNewLine & PanelMapFileContent
             'MsgBox "REPLACE: " & vbNewLine & Replace(PanelMapFileContent, "000", "030", Index, 1)
-            PanelMapFileContent = Left(PanelMapFileContent, Index - 1) & Replace(PanelMapFileContent, "000", "030", Index, 1)
+        
+            PanelMapFileContent = Left(PanelMapFileContent, Index - 1 + IndexOffset) & Replace(PanelMapFileContent, "000", "030", Index + IndexOffset, 1)
             'MsgBox "AFTER:" & vbNewLine & PanelMapFileContent
         End If
-        Index = InStr(Index + 1, InkoutMapFileContent, "030")
+        Index = InStr(Index + 1 + IndexOffset, InkoutMapFileContent, "030")
     Loop
     
-    
+    MsgBox "Done merge" & PanelMapFileContent
     MergeMap = PanelMapFileContent
-    
-    'MsgBox "[" & DefectCode & "]"
-    
-    
-    'PanelMapFileContent
-    
-    
-    
-    
-    
-    'MsgBox PanelMapFileContent
-    'MsgBox InkoutMapFileContent
-    
-    
-    
-    
+        
 End Function
 
 
 
 
-Private Sub ConvertDefectCode(ByVal Filename As String)
+Public Sub ConvertDefectCode(ByVal Filename As String)
     
     Dim filePath As String
     Dim fileNum As Integer
@@ -432,20 +329,28 @@ Private Sub ConvertDefectCode(ByVal Filename As String)
     
     'MsgBox "[" & fileContent & "]"
     
-    Close #fileNum
+     
     
-    Open filePath For Output As #fileNum
-    Print #fileNum, fileContent
+    folderPath = Left(Filename, InStrRev(Filename, "\") - 1)
+    MsgBox folderPath & "\Merge Map\"
+    'MsgBox Dir(folderPath & "\Merge Map", vbDirectory)
+    If Dir(folderPath & "\Merge Map", vbDirectory) = "" Then MkDir (folderPath & "\Merge Map")
+    'MkDir "C:\Temp\NewFolder"
     Close #fileNum
+    filePath = folderPath & "\Merge Map\" & Split(Filename, "\")(UBound(Split(Filename, "\")))
+    MsgBox filePath
+    'Open filePath For Output As #fileNum
+    'Print #fileNum, fileContent
+    'Close #fileNum
 
 End Sub
 
 
 
-Private Function GetMapList(ByVal Directory As String)
+Public Function GetMapList(ByVal Directory As String)
     
     Files = ""
-    Filename = Dir(Directory)
+    Filename = Dir(Directory & "\")
     ThisWorkbook.Sheets(1).Range("B7").Value = Directory
     Do While Filename <> ""
     
@@ -455,7 +360,7 @@ Private Function GetMapList(ByVal Directory As String)
         FileIsMap = Filename <> vbNewLine And Len(Filename) >= 6
         FileIsMap = FileIsMap And InStr(Filename, Schedule) > 0
         FileIsMap = FileIsMap And InStr(Filename, "August") = 0
-       
+        
         If FileIsMap Then
             Files = Files & "\" & Filename
         End If
