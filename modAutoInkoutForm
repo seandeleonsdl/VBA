@@ -1,14 +1,12 @@
-
-
+' GOAL 1: Have only 3 controls ready
+' GOAL 2: Create the work settings
+' GOAL 3: Settings for workweek
 
 Private checkStep() As Class1
 
 
 Private Sub funcGetSubfolders()
     
-    
-    
-
     Dim startPath As String
     startPath = "C:\Users\Sean\Desktop\bumping2"
     ThisWorkbook.Sheets("Subfolders").Cells.Clear
@@ -40,6 +38,7 @@ Private Sub subGetSubfolders(ByVal Directory As String, ByRef r As Long)
     Set ParentFolder = fso.GetFolder(Directory)
     
     For Each Subfolder In ParentFolder.Subfolders
+        
         ThisWorkbook.Sheets("Subfolders").Cells(r, 1).Value = Subfolder.Name
         ThisWorkbook.Sheets("Subfolders").Cells(r, 2).Value = Subfolder.Path
         'Stream = Stream & "|" & Subfolder.Path
@@ -49,14 +48,38 @@ Private Sub subGetSubfolders(ByVal Directory As String, ByRef r As Long)
         
 End Sub
 
-
+Private Sub subSetCSSStyling()
+    
+    'Set lblTemporary = Me.Controls.Add("Forms.Label.1", "lblPanelMapDirectory", True)
+    
+    
+    
+    
+    
+    Set lblTemporary = Me.Controls.Add("Forms.Label.1", "lblPanelMapDirectory", True)
+    lblTemporary.Width = Me.txtPanelMapDirectory.Width
+    lblTemporary.Height = 12
+    lblTemporary.Left = Me.txtPanelMapDirectory.Left
+    lblTemporary.Top = Me.txtPanelMapDirectory.Top - lblTemporary.Height
+    lblTemporary.FontName = "Courier New"
+    lblTemporary.Caption = "Panel Map Directory"
+    
+    Set lblTemporary = Me.Controls.Add("Forms.Label.1", "lblInkoutMapDirectory", True)
+    lblTemporary.Width = Me.txtInkoutMapDirectory.Width
+    lblTemporary.Height = 12
+    lblTemporary.Left = Me.txtInkoutMapDirectory.Left
+    lblTemporary.Top = Me.txtInkoutMapDirectory.Top - lblTemporary.Height
+    lblTemporary.FontName = "Courier New"
+    lblTemporary.Caption = "Inkout Map Directory"
+    
+    
+    
+End Sub
 
 
 
 Private Sub UserForm_Initialize()
-        
-'    funcGetSubfolders
-        
+            
     '------------------------
     ' 1.) Program properties
     '------------------------
@@ -70,16 +93,16 @@ Private Sub UserForm_Initialize()
     ReDim labelSchedule(1 To PROPERTIES_MaxScheduleCount) As Object
     ReDim LABEL_ScheduleBackground(1 To PROPERTIES_MaxScheduleCount) As Object
     
-    Me.txtPanelMapDirectory = PROPERTIES_PanelMapDirectory
-    Me.txtInkoutMapDirectory = PROPERTIES_InkoutMapDirectory
-    Me.txtMergeMapDirectory = PROPERTIES_MergeMapDirectory
+    subSetCSSStyling
+    
+    Me.txtPanelMapDirectory.Value = PROPERTIES_PanelMapDirectory
+    Me.txtInkoutMapDirectory.Value = PROPERTIES_InkoutMapDirectory
+    Me.txtMergeMapDirectory.Value = PROPERTIES_MergeMapDirectory
     
     '--------------------------------
     ' 2.) Set-up userform aesthetics
     '--------------------------------
-    Me.BackColor = RGB(252, 252, 252)
-    Me.Label7.BackColor = RGB(220, 234, 247)
-    Me.lblBackground.BackColor = RGB(240, 240, 240)
+    'Me.lblBackground.BackColor = RGB(240, 240, 240)
     
     
     For i = 1 To PROPERTIES_MaxScheduleCount
@@ -119,6 +142,17 @@ Private Sub UserForm_Initialize()
         labelSchedule(i).Font.Name = "Courier New"
         labelSchedule(i).Font.Size = 8
         
+        '----------------
+        ' d.)
+        '---------------
+        remarksName = "lblRemarks_" & Format(i, "00")
+        Set labelInstance = Me.Controls.Add("Forms.Label.1", remarksName, True)
+        labelInstance.Left = lblRemarks.Left
+        labelInstance.Top = LABEL_ScheduleBackground(i).Top
+        labelInstance.Width = lblRemarks.Width
+        labelInstance.Font.Name = "Courier New"
+        labelInstance.Font.Size = 8
+        
         
         For j = 1 To PROPERTIES_MaxStepCount
         
@@ -154,9 +188,8 @@ Private Sub UserForm_Initialize()
             Set checkStep(i, j).Range = ThisWorkbook.Sheets(2).Range("B2").Offset(i - 1, j - 1)
             checkStep(i, j).Row = i
             
-            '----------------
-            ' d.)
-            '---------------
+          
+            
             'toggleYes = Me.Controls.Add("Forms.Label.1", checkboxName, True)
             
         
@@ -236,78 +269,90 @@ End Function
 
 
 
-Private Sub Inkout(ByVal Schedule As String, ByVal Step As Integer)
+Private Sub Inkout(ByVal InkoutMapDirectory As String, ByVal Schedule As String, ByVal ScheduleIndex As Integer)
 
     Dim fso As Object
     Set fso = CreateObject("Scripting.FileSystemObject")
     
-    '-----------------
-    ' Get Directories
-    '-----------------
-    '(1) Get Directories
-    InkoutMapWorkWeek = Right(Year(Now), 2)
-    InkoutMapScheduleDigits = Left(Schedule, 2)
-    InkoutMapDirectory = Me.txtInkoutMapDirectory & "\W" & InkoutMapWorkWeek & InkoutMapScheduleDigits
-    'InkoutMapDirectory =WorkWeek = Right(Year(Now), 2)
-    
-    
-    
+    '-------------------------------
+    ' 1. Get the needed directories
+    '-------------------------------
     PanelMapDirectory = Me.txtPanelMapDirectory
     MergeMapDirectory = Me.txtMergeMapDirectory
     
-    '(2) Create Inkout Folders in MergeMapDirectory
+    '-----------------------------------------------
+    ' 2. Create Inkout Folders in MergeMapDirectory
+    '-----------------------------------------------
     If Dir(MergeMapDirectory, vbDirectory) = "" Then MkDir MergeMapDirectory
-    If Dir(MergeMapDirectory & "\Inkout Map", vbDirectory) = "" Then MkDir (MergeMapDirectory & "\Inkout Map")
-    If Dir(MergeMapDirectory & "\Panel Map", vbDirectory) = "" Then MkDir (MergeMapDirectory & "\Panel Map")
-    If Dir(MergeMapDirectory & "\Merge Map", vbDirectory) = "" Then MkDir (MergeMapDirectory & "\Merge Map")
+    If Dir(MergeMapDirectory & "\" & Schedule, vbDirectory) = "" Then MkDir (MergeMapDirectory & "\" & Schedule)
+    If Dir(MergeMapDirectory & "\" & Schedule & "\Merge Map", vbDirectory) = "" Then MkDir (MergeMapDirectory & "\" & Schedule & "\Merge Map")
+    'If Dir(MergeMapDirectory & "\Inkout Map", vbDirectory) = "" Then MkDir (MergeMapDirectory & "\Inkout Map")
+    'If Dir(MergeMapDirectory & "\Panel Map", vbDirectory) = "" Then MkDir (MergeMapDirectory & "\Panel Map")
     
     
-    '(3) Get Map List from Bumping2 and PanelMap
-    MapList = GetMapList(InkoutMapDirectory & "\" & Schedule & "\" & CStr(Step) & "\")
-    PanelMapList = GetMapList(PanelMapDirectory & "\" & Schedule & "*")
+    InkoutMapList = Module1.GetMapList(InkoutMapDirectory)
+    'PanelMapList = GetMapList(PanelMapDirectory & "\" & Schedule & "*")
     
-    For Each InkoutMap In MapList
-           
+    
+    
+    
+    
+    
+    For Each InkoutMap In InkoutMapList
+        
         '(4) Get InkoutMap from Bumping2
-        FileToCopy = InkoutMapDirectory & "\" & Schedule & "\" & CStr(Step) & "\" & InkoutMap
-        SaveFileAs = MergeMapDirectory & "\Inkout Map\" & InkoutMap
+        FileToCopy = InkoutMapDirectory & "\" & InkoutMap
+        SaveFileAs = MergeMapDirectory & "\" & Schedule & "\" & InkoutMap
+        
+        'Need to program if already has
+        ThisWorkbook.Sheets(1).Range("A16").Value = FileToCopy
+        ThisWorkbook.Sheets(1).Range("A17").Value = SaveFileAs
         fso.CopyFile FileToCopy, SaveFileAs
         
         '(5) Convert Defect Code
         ConvertDefectCode SaveFileAs
         
+        InkoutMapID = GetWaferID(InkoutMap)
+        PanelMapID = Dir(PanelMapDirectory & "\" & Schedule)
+    
+        'PanelMapDirectory =
         '(6) Sort through each PanelMap
-        For Each PanelMap In PanelMapList
+        'For Each PanelMap In PanelMapList
         
-            InkoutMapID = GetWaferID(InkoutMap)
-            PanelMapID = GetWaferID(PanelMap)
+        '    InkoutMapID = GetWaferID(InkoutMap)
+        '    PanelMapID = GetWaferID(PanelMap)
             
-            If InkoutMapID = PanelMapID Then
+        '    If InkoutMapID = PanelMapID Then
                 
-                FileToCopy = PanelMapDirectory & "\" & PanelMap
-                SaveFileAs = MergeMapDirectory & "\Panel Map\" & PanelMap
-                fso.CopyFile FileToCopy, SaveFileAs
+        PanelMap = Dir(PanelMapDirectory & "\" & Schedule & "-" & Format(InkoutMapID, "00") & "*")
+        If PanelMap = "" Then Me.Controls("lblRemarks_" & Format(ScheduleIndex, "00")).Caption = "PanelMap not found"
+        
+        FileToCopy = PanelMapDirectory & "\" & PanelMap
+        SaveFileAs = MergeMapDirectory & "\" & Schedule & "\" & PanelMap
+        fso.CopyFile FileToCopy, SaveFileAs
                 
-                MergeMapContent = MergeMap("C:\Users\Sean\OneDrive\Desktop\Onyx\PanelMap\" & PanelMap, MergeMapDirectory & "\Inkout Map\" & InkoutMap)
-                filePath = MergeMapDirectory & "\Merge Map\" & PanelMap
+        MergeMapContent = Module1.MergeMap(MergeMapDirectory & "\" & Schedule & "\" & PanelMap, MergeMapDirectory & "\" & Schedule & "\" & InkoutMap)
+        MsgBox MergeMapContent
+        filePath = MergeMapDirectory & "\" & Schedule & "\Merge Map\" & PanelMap
+        
+        'MergeMapContent = MergeMap("C:\Users\Sean\OneDrive\Desktop\Onyx\PanelMap\" & PanelMap, MergeMapDirectory & "\Inkout Map\" & InkoutMap)
+        '        filePath = MergeMapDirectory & "\Merge Map\" & PanelMap
                 
-                If Dir(MergeMapDirectory & "\Merge Map", vbDirectory) = "" Then
-                    MkDir MergeMapDirectory & "\MergeMap"
-                End If
+        '        If Dir(MergeMapDirectory & "\Merge Map", vbDirectory) = "" Then
+        '            MkDir MergeMapDirectory & "\MergeMap"
+        '        End If
                 
-                fileNum = FreeFile
-                Open filePath For Output As #fileNum
-                Print #fileNum, MergeMapContent
-                Close #fileNum
+        fileNum = FreeFile
+        Open filePath For Output As #fileNum
+        Print #fileNum, MergeMapContent
+        Close #fileNum
                 
-                Exit For
-            End If
-        Next
+        '        Exit For
+        '    End If
+        'Next
             
+
     Next
-
-
-
 End Sub
 
 
@@ -316,31 +361,45 @@ End Sub
 Private Sub btnInkout_Click()
     
     Dim ScheduleCount As Integer, StepCount As Integer
-    ScheduleCount = ThisWorkbook.Sheets(2).Range("A" & Rows.count).End(xlUp).Row - 1
-    StepCount = ThisWorkbook.Sheets(2).Cells(1, Columns.count).End(xlToLeft).Column - 1
+    ScheduleCount = ThisWorkbook.Sheets("Switches").Range("A" & Rows.count).End(xlUp).Row - 1
+    StepCount = ThisWorkbook.Sheets("Settings").Range("B5")
     
     Dim InkoutSchedules As String
     
+    Bumping2Directory = ThisWorkbook.Sheets("Settings").Range("B3")
     For i = 1 To ScheduleCount
-        Schedule = ThisWorkbook.Sheets(2).Range("A2").Offset(i - 1, 0).Value2
+        Schedule = ThisWorkbook.Sheets("Switches").Range("A2").Offset(i - 1, 0).Value2
+        InkoutMapDirectory = Bumping2Directory & "\W25" & Left(Schedule, 2) & "\"
+        
         For j = 1 To StepCount
-            Step = ThisWorkbook.Sheets(2).Range("B1").Offset(0, j - 1).Value2
-            NeedInkout = ThisWorkbook.Sheets(2).Range("B2").Offset(i - 1, j - 1).Value
-            
-            If NeedInkout = True Then
-                InkoutSchedules = InkoutSchedules & Schedule & " " & Step & vbNewLine
+        
+            'Step = ThisWorkbook.Sheets(2).Range("B1").Offset(0, j - 1).Value2
+            NeedInkout = ThisWorkbook.Sheets("Switches").Range("B2").Offset(i - 1, j - 1).Value
+                
+            If NeedInkout Then
+        
+                Step = Me.Controls("checkStep_" & Format(i, "00") & "_" & Format(j, "00")).Caption
+                InkoutSchedules = InkoutSchedules & "|" & Schedule & "\" & Step
+                InkoutSchedule = Schedule & "\" & Step
+                Inkout InkoutMapDirectory & InkoutSchedule, Schedule, i
             End If
             
         Next
     Next
-    InkoutSchedules = Left(InkoutSchedules, Len(InkoutSchedules) - 1)
+    'MsgBox InkoutSchedules
+    'InkoutSchedules = Right(InkoutSchedules, Len(InkoutSchedules) - 1)
     
     
-    For Each InkoutSchedule In Split(InkoutSchedules, vbNewLine)
-        MsgBox InkoutSchedule
-        Inkout Split(InkoutSchedule, " ")(0), Split(InkoutSchedule, " ")(1)
-    Next
-       
+    
+    'For Each InkoutSchedule In Split(InkoutSchedules, "|")
+            
+        
+        'MsgBox InkoutMapDirectory & InkoutSchedule
+    '    Inkout InkoutMapDirectory & InkoutSchedule, Split(InkoutSchedule, "\")(0)
+        'Inkout Split(InkoutSchedule, " ")(0), Split(InkoutSchedule, " ")(1)
+    'Next
+    
+    MsgBox "Done Inkout"
 '    MsgBox InkoutSchedules
 
 End Sub
@@ -510,13 +569,26 @@ Private Function GetMapList(ByVal Directory As String)
     
 End Function
 
-Private Sub subFilterMaps()
+Private Sub subFilterMaps(InkoutDirectory As String)
     Dim SubfolderCount As Integer
     SubfolderCount = ThisWorkbook.Sheets("Subfolders").Range("B" & Rows.count).End(xlUp).Row
+    If SubfolderCount = 0 Then Exit Sub
+    
+    Schedule = Split(ThisWorkbook.Sheets("Subfolders").Range("B" & 1).Value, "\")(UBound(Split(ThisWorkbook.Sheets("Subfolders").Range("B" & 1).Value, "\")) - 1)
+    'MsgBox Schedule
     
     For i = 1 To SubfolderCount
-    
-    
+        Directory = ThisWorkbook.Sheets("Subfolders").Range("B" & i).Value
+        HaveMap = Dir(Directory & "\" & Schedule & "*") <> ""
+        
+        'MsgBox Directory & "\" & Schedule & "*"
+        ThisWorkbook.Sheets("Subfolders").Range("C" & i).Value = HaveMap
+        ThisWorkbook.Sheets("Subfolders").Range("A" & i).Value = Replace(ThisWorkbook.Sheets("Subfolders").Range("B" & i).Value, InkoutDirectory & "\", "")
+        'If HaveMap Then
+            
+        'Else
+            'ThisWorkbook.Sheets("Subfolders").Range("C" & i + 1).Value = False
+        'End If
     Next
     
 End Sub
@@ -553,9 +625,9 @@ Private Sub txtInkoutSchedules_Change()
     'IN/6440/AEI/6730/6630/6733/6688/6905
     
     
-    '-----------------------------
-    ' 2. Reset/clear all controls
-    '-----------------------------
+    '------------------------------------------------------------------------------------------------------
+    ' 2. Reset/clear "switches"; these switches is used to check which steps the user has chosen to inkout
+    '------------------------------------------------------------------------------------------------------
     For i = 1 To PROPERTIES_MaxScheduleCount
         For j = 1 To PROPERTIES_MaxStepCount
             Me.Controls("checkStep_" & Format(i, "00") & "_" & Format(j, "00")).BackColor = RGB(240, 240, 240)
@@ -563,17 +635,262 @@ Private Sub txtInkoutSchedules_Change()
         Next
     Next
     
-    LastCell = Replace(ThisWorkbook.Sheets(2).Cells(1 + PROPERTIES_MaxScheduleCount, 1 + PROPERTIES_MaxStepCount).Address, "$", "")
+    FirstCell = "B2"
+    LastCell = Replace(ThisWorkbook.Sheets("Switches").Cells(1 + PROPERTIES_MaxScheduleCount, 1 + PROPERTIES_MaxStepCount).Address, "$", "")
+    ThisWorkbook.Sheets("Switches").Range(FirstCell & ":" & LastCell).Value = ""
     
-    ThisWorkbook.Sheets(2).Range("B2:" & LastCell).Value = ""
     
-    '---------------
-    '
-    '---------------
+    
+    
+    Dim StepList() As Variant, StepCount As Integer
+    ReDim StepList(1 To PROPERTIES_MaxStepCount)
+    
+    
+    
+    Dim Active() As Variant
+    ReDim Active(1 To PROPERTIES_MaxScheduleCount, 1 To PROPERTIES_MaxStepCount)
+
+    Dim StepListString As String
+    'StepList(1) = 6730
+    StepListString = StepListString & "[6730]"
+    
+    
+    
+    '-----------------------------------------------
+    ' Get all the available steps for each schedule
+    '-----------------------------------------------
+    
     Dim ScheduleList As Variant, ScheduleCount As Integer, WorkWeek As String
     ScheduleList = Split(txtInkoutSchedules.Value, vbNewLine)
     ScheduleCount = UBound(ScheduleList) + 1
     WorkWeek = Right(Year(Now), 2)
+    
+    '(1) Get Directories
+    InkoutMapWorkWeek = Right(Year(Now), 2)
+    InkoutMapWorkWeek = Right(Year(Now) - 1, 2)
+    
+    InkoutMapScheduleDigits = Left(Schedule, 2)
+    InkoutMapDirectory = Me.txtInkoutMapDirectory.Value & "\W" & InkoutMapWorkWeek & InkoutMapScheduleDigits
+    
+    
+    
+    For i = 1 To ScheduleCount
+        For j = 1 To PROPERTIES_MaxStepCount
+            ThisWorkbook.Sheets("Switches").Range("B2").Offset(i - 1, j - 1).Value = False
+            'Active(i, j) = "N/A"
+        Next
+    Next
+    
+    
+    '------------------------------------------------------
+    ' For each schedule, get a list of all available steps
+    '------------------------------------------------------
+    RunLog(1, 1) = "001 Getting list of steps"
+    
+    For i = 0 To UBound(ScheduleList)
+    
+        Me.Controls("labelSchedule_" & Format(i + 1, "00")).Caption = ScheduleList(i)
+        ThisWorkbook.Sheets("Subfolders").UsedRange.Clear
+        StepCount = 0
+        For j = 1 To PROPERTIES_MaxStepCount
+            StepList(j) = ""
+        Next
+        
+        'Error proofing; adds if the inkoutmap folder cannot be found
+        '--------------------------------------------
+        ' If step cannot be found in Bumping2 folder
+        '--------------------------------------------
+        subGetSubfolders InkoutMapDirectory & "\" & ScheduleList(i), 1
+        subFilterMaps InkoutMapDirectory & "\" & ScheduleList(i)
+    
+        Me.Controls("LabelBackground_" & Format(i + 1, "00")).Visible = True
+        
+        SubfolderCount = ThisWorkbook.Sheets("Subfolders").Range("B" & Rows.count).End(xlUp).Row
+        
+        For j = 1 To SubfolderCount
+            HaveMap = ThisWorkbook.Sheets("Subfolders").Range("C" & j).Value
+            If HaveMap Then
+                
+                DirectoryWithMap = ThisWorkbook.Sheets("Subfolders").Range("A" & j).Value
+                
+                StepCount = StepCount + 1
+                StepList(StepCount) = DirectoryWithMap
+                
+                
+                'NotIncluded = InStr(1, StepListString, StepFolderName) = 0
+                'If NotIncluded Then
+                '    StepListString = StepListString & "[" & StepFolder & "]"
+                '    StepCount = StepCount + 1
+                '    StepList(StepCount) = StepFolderName
+                'End If
+            
+            End If
+        Next
+        
+        For j = 1 To StepCount
+            Me.Controls("checkStep_" & Format(i + 1, "00") & "_" & Format(j, "00")).Caption = StepList(j)
+        Next
+        
+        For Each StepFolder In Split(Directories, "|")
+        
+            '----------------------------------
+            ' Step Folder Criteria; what is a step folder?
+            '----------------------
+            'IsStepFolder = UCase(StepFolder) <> "ORG"
+            'IsStepFolder = StepFolder <> "AEI"
+            StepFolderName = Split(StepFolder, "\")(UBound(Split(StepFolder, "\")))
+            
+            
+            'MsgBox "step folder: " & StepFolder
+            
+            IsStepFolder = (GetAttr(StepFolder) And vbDirectory) = vbDirectory
+            IsStepFolder = IsStepFolder And Len(StepFolderName) >= 4
+            
+            'MsgBox "StepFolderName: " & StepFolderName & "Is Step Folder? " & IsStepFolder
+            
+            'If (GetAttr(folderPath & item) And vbDirectory) = vbDirectory T
+            
+            'MsgBox "enteringfing if isstep"
+            If IsStepFolder Then
+                'MsgBox "this is running " & StepFolder
+                '---------------------------------------------------------------------------
+                ' Is this StepFolder in StepListOfSteps? If NotIncluded, add it to the list
+                '---------------------------------------------------------------------------
+                NotIncluded = InStr(1, StepListString, StepFolderName) = 0
+                If NotIncluded Then
+                    StepListString = StepListString & "[" & StepFolder & "]"
+                    StepCount = StepCount + 1
+                    StepList(StepCount) = StepFolderName
+                End If
+                
+                
+                For k = 1 To StepCount
+                    
+                '    MsgBox StepList(j)
+                    'Me.Controls("checkStep_" & Format(i + 1, "00") & "_" & Format(j, "00")).Caption = StepList(j)
+                          
+                    If StepList(j) = StepFolder Then
+                 
+                        Active(i + 1, j) = False
+                
+                        Me.Controls("checkStep_" & Format(i + 1, "00") & "_" & Format(j, "00")).BackColor = RGB(220, 234, 247) ' Light Blue
+                        Me.Controls("checkStep_" & Format(i + 1, "00") & "_" & Format(j, "00")).ForeColor = RGB(0, 0, 0)
+                    
+                    End If
+                    
+                Next
+                
+                Files = Files & "\" & StepFolder
+            End If
+        Next
+        
+SkipLot:
+    Next
+    
+    
+    LastCell = Replace(ThisWorkbook.Sheets(2).Cells(1 + ScheduleCount, 1 + StepCount).Address, "$", "")
+    'ThisWorkbook.Sheets(2).Range("B2:" & LastCell).Value = Active
+    
+    For i = 1 To ScheduleCount
+        For j = 1 To StepCount
+            
+            Me.Controls("checkStep_" & Format(i, "00") & "_" & Format(j, "00")).BackColor = RGB(240, 240, 240)
+            Me.Controls("checkStep_" & Format(i, "00") & "_" & Format(j, "00")).ForeColor = RGB(126, 126, 126)
+            Me.Controls("checkStep_" & Format(i, "00") & "_" & Format(j, "00")).Visible = True
+            
+                        
+            If Active(i, j) <> "N/A" Then
+                Me.Controls("checkStep_" & Format(i, "00") & "_" & Format(j, "00")).BackColor = RGB(220, 234, 247) ' Light Blue
+                Me.Controls("checkStep_" & Format(i, "00") & "_" & Format(j, "00")).ForeColor = RGB(0, 0, 0)
+            
+            End If
+            
+        Next
+    Next
+    
+    
+    
+    
+    
+    '----------------------------------------------
+    ' Update each control to reflect each schedule
+    '----------------------------------------------
+    Dim Schedules() As String, Steps() As Variant
+    ReDim Schedules(0 To UBound(ScheduleList) + 1, 1)
+    ReDim Steps(0, StepCount)
+    For i = 1 To UBound(ScheduleList) + 1
+        'Me.Controls("labelSchedule_" & Format(i, "00")).Caption = ScheduleList(i - 1)
+        Schedules(i - 1, 0) = ScheduleList(i - 1)
+        
+        For j = 1 To StepCount
+    
+            'Me.Controls("checkStep_" & Format(i, "00") & "_" & Format(j, "00")).Caption = StepList(j)
+            Steps(0, j - 1) = StepList(j)
+        Next
+    
+    Next
+    
+    ThisWorkbook.Sheets(2).Range("A2:A" & 1 + ScheduleCount).Value = Schedules
+    ThisWorkbook.Sheets(2).Range("B1:" & Replace(Cells(1, 1 + StepCount).Address, "$", "")).Value = Steps
+    
+    
+    
+    
+    
+    
+    StepListString = Right(StepListString, Len(StepListString) - 1)
+    
+    
+    Exit Sub
+    
+End Sub
+
+
+Private Sub txtInkoutSchedulesOld_Change()
+
+    For Each Sched In Split(txtInkoutSchedules.Value, vbNewLine)
+        WW = "W25" & Left(Sched, 2)
+        'MsgBox txtInkoutMapDirectory.Value & "\" & WW & "\" & Sched
+    Next
+
+    Dim DebugMode As Boolean
+    DebugMode = True
+    Dim RunLog(1 To 1, 1 To 10) As String
+    
+    '----------------------
+    ' TextBox Input Filter
+    '----------------------
+    txtInkoutSchedules.Value = UCase(txtInkoutSchedules.Value)
+    
+    If Right(txtInkoutSchedules.Value, 1) = vbLf Then
+        txtInkoutSchedules.Value = Left(txtInkoutSchedules.Value, Len(txtInkoutSchedules.Value) - 2)
+        Exit Sub
+    End If
+    
+    If Len(txtInkoutSchedules.Value) < 10 Then Exit Sub
+    Schedule = txtInkoutSchedules.Value
+    
+    '---------------------------------
+    ' 1.) Retrieve program properties
+    '---------------------------------
+    PROPERTIES_MaxScheduleCount = ThisWorkbook.Sheets(1).Range("C5").Value2
+    PROPERTIES_MaxStepCount = ThisWorkbook.Sheets(1).Range("C6").Value2
+    'IN/6440/AEI/6730/6630/6733/6688/6905
+    
+    
+    '------------------------------------------------------------------------------------------------------
+    ' 2. Reset/clear "switches"; these switches is used to check which steps the user has chosen to inkout
+    '------------------------------------------------------------------------------------------------------
+    For i = 1 To PROPERTIES_MaxScheduleCount
+        For j = 1 To PROPERTIES_MaxStepCount
+            Me.Controls("checkStep_" & Format(i, "00") & "_" & Format(j, "00")).BackColor = RGB(240, 240, 240)
+            Me.Controls("checkStep_" & Format(i, "00") & "_" & Format(j, "00")).Caption = ""
+        Next
+    Next
+    
+    FirstCell = "B2"
+    LastCell = Replace(ThisWorkbook.Sheets("Switches").Cells(1 + PROPERTIES_MaxScheduleCount, 1 + PROPERTIES_MaxStepCount).Address, "$", "")
+    ThisWorkbook.Sheets("Switches").Range(FirstCell & ":" & LastCell).Value = ""
     
     
     
@@ -596,12 +913,19 @@ Private Sub txtInkoutSchedules_Change()
     ' Get all the available steps for each schedule
     '-----------------------------------------------
     
+    Dim ScheduleList As Variant, ScheduleCount As Integer, WorkWeek As String
+    ScheduleList = Split(txtInkoutSchedules.Value, vbNewLine)
+    ScheduleCount = UBound(ScheduleList) + 1
+    WorkWeek = Right(Year(Now), 2)
+    
     '(1) Get Directories
     InkoutMapWorkWeek = Right(Year(Now), 2)
     InkoutMapWorkWeek = Right(Year(Now) - 1, 2)
     
     InkoutMapScheduleDigits = Left(Schedule, 2)
     InkoutMapDirectory = Me.txtInkoutMapDirectory.Value & "\W" & InkoutMapWorkWeek & InkoutMapScheduleDigits
+    
+    
     
     For i = 1 To ScheduleCount
         For j = 1 To PROPERTIES_MaxStepCount
@@ -617,7 +941,9 @@ Private Sub txtInkoutSchedules_Change()
     For i = 0 To UBound(ScheduleList)
         
         'Error proofing; adds if the inkoutmap folder cannot be found
-        
+        '--------------------------------------------
+        ' If step cannot be found in Bumping2 folder
+        '--------------------------------------------
         StepFolder = Dir(InkoutMapDirectory & "\" & ScheduleList(i) & "\", vbDirectory)
         If StepFolder = "" Then
             Me.Controls("lblRemarks_" & Format(i + 1, "00")).Caption = "Bumping2 Folder not found"
