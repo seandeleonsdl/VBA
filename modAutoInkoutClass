@@ -14,8 +14,8 @@ End Property
 
 
 
-Public Property Set Range(R As Range)
-    Set pRange = R
+Public Property Set Range(r As Range)
+    Set pRange = r
 End Property
 
 
@@ -34,12 +34,9 @@ End Sub
 
 Private Sub checkbox_Click()
     
-    
-    MsgBox "Hello"
-    If Len(pRange.Value) = 0 Or pRange.Value = "N/A" Then Exit Sub
-    
     x = Int(Split(checkbox.Name, "_")(1))
     y = Int(Split(checkbox.Name, "_")(2))
+
     MaxStepCount = ThisWorkbook.Sheets(1).Range("C6").Value
     Set pSwitch = ThisWorkbook.Sheets(2).Range("B2").Offset(x - 1, y - 1)
     
@@ -51,7 +48,7 @@ Private Sub checkbox_Click()
             If instanceSwitch.Value = True Then instanceSwitch.Value = False
             
             BackColor = RGB(240, 240, 240)
-            If instanceSwitch.Value = False And Len(instanceSwitch.Value) > 0 Then BackColor = RGB(220, 234, 247)
+            'If instanceSwitch.Value = False And Len(instanceSwitch.Value) > 0 Then BackColor = RGB(220, 234, 247)
             
             formAutoInkout.Controls("checkStep_" & Format(x, "00") & "_" & Format(j, "00")).BackColor = BackColor
             
@@ -60,25 +57,52 @@ Private Sub checkbox_Click()
         
     Next
     
-    If pSwitch.Value = True Then
+    If pRange.Value = True Then
     
         UI_DeactivateCheckBox checkbox
-        pSwitch.Value = False
+        
+        
+        pRange.Value = False
          
-    ElseIf pSwitch.Value = False Then
+    ElseIf pRange.Value = False Then
         
         UI_ActivateCheckBox checkbox
-        pSwitch.Value = True
+        pRange.Value = True
         Schedule = ThisWorkbook.Sheets(2).Range("A2").Offset(x - 1, 0).Value
         Step = ThisWorkbook.Sheets(2).Range("B1").Offset(0, y - 1).Value
-        MsgBox Schedule & " " & Step
         
-'        Remarks = formAutoInkout.CountF30(Schedule, "6730")
         formAutoInkout.Controls("lblRemarks_" & Format(x, "00")).Caption = Remarks
         
     End If
+    'MsgBox checkbox.Name
+    Schedule = ThisWorkbook.Sheets("Switches").Range("A" & x + 1).Value
+    Bumping2Directory = ThisWorkbook.Sheets("Settings").Range("B3")
+    InkoutMapDirectory = Bumping2Directory & "\W25" & Left(Schedule, 2) & "\" & Schedule
+    Directory = InkoutMapDirectory & "\" & checkbox.Caption
     
+    Remarks = ""
+    
+    'PanelMapList = GetMapList(PanelMapDirectory & "\" & Schedule & "*")
+    
+    
+    For Each Map In Module1.GetMapList(Directory)
+        
+        
+    
+        
+        
+        'Module1.ConvertDefectCode (Directory & "\" & Map)
+        InkoutMapWaferID = Module1.GetWaferID(Map)
+        Remarks = Remarks & ",S" & Module1.GetWaferID(InkoutMapWaferID) & "-" & Module1.CountF30(Directory & "\" & Map) & "ea"
+        
 
+        
+        
+    Next
+    Remarks = Right(Remarks, Len(Remarks) - 1)
+    formAutoInkout.Controls("lblRemarks_" & Format(x, "00")).Caption = Remarks
     
 End Sub
+
+
 
