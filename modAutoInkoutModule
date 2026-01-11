@@ -1,5 +1,50 @@
 Private checkStep() As Class1
 
+Public Sub subGetSubfolders(ByVal Directory As String, ByRef r As Long)
+
+    Dim fso As Object
+    Dim ParentFolder As Object
+    Dim Subfolder As Object
+
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    Set ParentFolder = fso.GetFolder(Directory)
+    
+    For Each Subfolder In ParentFolder.Subfolders
+        
+        ThisWorkbook.Sheets("Subfolders").Cells(r, 1).Value = Subfolder.Name
+        ThisWorkbook.Sheets("Subfolders").Cells(r, 2).Value = Subfolder.Path
+        'Stream = Stream & "|" & Subfolder.Path
+        r = r + 1
+        subGetSubfolders Subfolder.Path, r
+    Next Subfolder
+        
+End Sub
+
+Public Sub subFilterMaps(InkoutDirectory As String)
+    Dim SubfolderCount As Integer
+    SubfolderCount = ThisWorkbook.Sheets("Subfolders").Range("B" & Rows.count).End(xlUp).Row
+    If SubfolderCount = 0 Then Exit Sub
+    
+    Schedule = Split(ThisWorkbook.Sheets("Subfolders").Range("B" & 1).Value, "\")(UBound(Split(ThisWorkbook.Sheets("Subfolders").Range("B" & 1).Value, "\")) - 1)
+    'MsgBox Schedule
+    
+    For i = 1 To SubfolderCount
+        Directory = ThisWorkbook.Sheets("Subfolders").Range("B" & i).Value
+        HaveMap = Dir(Directory & "\" & Schedule & "*") <> ""
+        
+        'MsgBox Directory & "\" & Schedule & "*"
+        ThisWorkbook.Sheets("Subfolders").Range("C" & i).Value = HaveMap
+        ThisWorkbook.Sheets("Subfolders").Range("A" & i).Value = Replace(ThisWorkbook.Sheets("Subfolders").Range("B" & i).Value, InkoutDirectory & "\", "", , , vbTextCompare)
+        
+        'If HaveMap Then
+            
+        'Else
+            'ThisWorkbook.Sheets("Subfolders").Range("C" & i + 1).Value = False
+        'End If
+    Next
+    
+End Sub
+
 Private Function funcWorksheetExists(wsName As String, Optional wb As Workbook) As Boolean
     Dim ws As Worksheet
     If wb Is Nothing Then Set wb = ThisWorkbook
@@ -10,6 +55,7 @@ Private Function funcWorksheetExists(wsName As String, Optional wb As Workbook) 
 
     funcWorksheetExists = Not ws Is Nothing
 End Function
+
 
 Private Function funcInitializeWorksheet_Settings()
 
@@ -184,48 +230,6 @@ Private Sub Inkout(ByVal Schedule As String, ByVal Step As Integer)
 
 End Sub
 
-
-
-
-Private Sub btnInkout_Click()
-    
-    Dim ScheduleCount As Integer, StepCount As Integer
-    ScheduleCount = ThisWorkbook.Sheets(2).Range("A" & Rows.count).End(xlUp).Row - 1
-    StepCount = ThisWorkbook.Sheets(2).Cells(1, Columns.count).End(xlToLeft).Column - 1
-    
-    Dim InkoutSchedules As String
-    
-    For i = 1 To ScheduleCount
-        Schedule = ThisWorkbook.Sheets(2).Range("A2").Offset(i - 1, 0).Value2
-        For j = 1 To StepCount
-            Step = ThisWorkbook.Sheets(2).Range("B1").Offset(0, j - 1).Value2
-            NeedInkout = ThisWorkbook.Sheets(2).Range("B2").Offset(i - 1, j - 1).Value
-            
-            If NeedInkout = True Then
-                InkoutSchedules = InkoutSchedules & Schedule & " " & Step & vbNewLine
-            End If
-            
-        Next
-    Next
-    InkoutSchedules = Left(InkoutSchedules, Len(InkoutSchedules) - 1)
-    
-    
-    For Each InkoutSchedule In Split(InkoutSchedules, vbNewLine)
-        MsgBox InkoutSchedule
-        Inkout Split(InkoutSchedule, " ")(0), Split(InkoutSchedule, " ")(1)
-    Next
-       
-'    MsgBox InkoutSchedules
-
-End Sub
-
-
-
-
-
-
-
-
 Public Function GetWaferID(ByVal Filename As String) As Integer
 
     Filename = Replace(Filename, ".txt", "")
@@ -329,19 +333,11 @@ Public Sub ConvertDefectCode(ByVal Filename As String)
     
     'MsgBox "[" & fileContent & "]"
     
-     
-    
-    folderPath = Left(Filename, InStrRev(Filename, "\") - 1)
-    MsgBox folderPath & "\Merge Map\"
-    'MsgBox Dir(folderPath & "\Merge Map", vbDirectory)
-    If Dir(folderPath & "\Merge Map", vbDirectory) = "" Then MkDir (folderPath & "\Merge Map")
-    'MkDir "C:\Temp\NewFolder"
     Close #fileNum
-    filePath = folderPath & "\Merge Map\" & Split(Filename, "\")(UBound(Split(Filename, "\")))
-    MsgBox filePath
-    'Open filePath For Output As #fileNum
-    'Print #fileNum, fileContent
-    'Close #fileNum
+    
+    Open filePath For Output As #fileNum
+    Print #fileNum, fileContent
+    Close #fileNum
 
 End Sub
 
@@ -351,29 +347,29 @@ Public Function GetMapList(ByVal Directory As String)
     
     Files = ""
     Filename = Dir(Directory & "\")
-    ThisWorkbook.Sheets(1).Range("B7").Value = Directory
+    
     Do While Filename <> ""
     
         '------------------------
         ' File Filter Conditions
         '------------------------
         FileIsMap = Filename <> vbNewLine And Len(Filename) >= 6
-        FileIsMap = FileIsMap And InStr(Filename, Schedule) > 0
-        FileIsMap = FileIsMap And InStr(Filename, "August") = 0
+        FileIsMap = FileIsMap And InStr(1, Filename, Schedule) > 0
+        FileIsMap = FileIsMap And InStr(1, Filename, ".x") = 0
         
-        If FileIsMap Then
-            Files = Files & "\" & Filename
-        End If
+        If FileIsMap Then Files = Files & "\" & Filename
         Filename = Dir
+        
     Loop
     
     If Len(Files) = 0 Then
-        MsgBox "No maps found"
+        
+        GetMapList = Array()
         Exit Function
         
     End If
+
     Files = Right(Files, Len(Files) - 1)
-    
     GetMapList = Split(Files, "\")
     
 End Function
