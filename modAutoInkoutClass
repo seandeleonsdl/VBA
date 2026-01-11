@@ -84,21 +84,18 @@ Private Sub checkbox_Click()
     
     'PanelMapList = GetMapList(PanelMapDirectory & "\" & Schedule & "*")
     
+    InkoutMapList = Module1.GetMapList(Directory)
+    If UBound(InkoutMapList) < 0 Then Exit Sub
     
-    For Each Map In Module1.GetMapList(Directory)
-        
-        
-    
-        
+    For Each Map In InkoutMapList
         
         'Module1.ConvertDefectCode (Directory & "\" & Map)
         InkoutMapWaferID = Module1.GetWaferID(Map)
         Remarks = Remarks & ",S" & Module1.GetWaferID(InkoutMapWaferID) & "-" & Module1.CountF30(Directory & "\" & Map) & "ea"
         
-
-        
-        
     Next
+    
+    
     Remarks = Right(Remarks, Len(Remarks) - 1)
     formAutoInkout.Controls("lblRemarks_" & Format(x, "00")).Caption = Remarks
     
