@@ -1,0 +1,104 @@
+
+
+
+
+Sub BuildDefectGrid()
+
+    Dim srcPath As String
+    Dim fName As String
+    Dim xVal As Long, yVal As Long
+    Dim defectClass As String
+    Dim r As Long, c As Long
+    Dim ws As Worksheet
+
+    ' === SETTINGS ===
+    srcPath = "C:\Inkout Map\"
+    Set ws = ThisWorkbook.Worksheets("Sheet1")
+
+    Const RowOffset As Long = 2
+    Const ColOffset As Long = 2
+
+    Application.ScreenUpdating = False
+
+    fName = Dir(srcPath & "*.jpg")
+
+    Do While fName <> ""
+
+        xVal = GetXYFromDollarFormat(fName, "x")
+        yVal = GetXYFromDollarFormat(fName, "y")
+        defectClass = GetDefectClass(fName)
+
+        If defectClass <> "" Then
+            r = yVal + RowOffset
+            c = xVal + ColOffset
+
+            Call AppendDefect(ws.Cells(r, c), defectClass)
+        End If
+
+        fName = Dir()
+    Loop
+
+    Application.ScreenUpdating = True
+    MsgBox "Defect grid complete."
+
+End Sub
+
+
+Sub AppendDefect(targetCell As Range, defectClass As String)
+
+    Dim existing As String
+    Dim parts() As String
+    Dim i As Long
+
+    existing = targetCell.Value
+
+    If existing = "" Then
+        targetCell.Value = defectClass
+        Exit Sub
+    End If
+
+    parts = Split(existing, ",")
+
+    For i = LBound(parts) To UBound(parts)
+        If Trim(parts(i)) = defectClass Then Exit Sub
+    Next i
+
+    targetCell.Value = existing & "," & defectClass
+
+End Sub
+
+Function GetDefectClass(fName As String) As String
+    Dim re As Object, m As Object
+
+    Set re = CreateObject("VBScript.RegExp")
+    re.Pattern = "\$(\d+)\$10x"
+    re.IgnoreCase = True
+
+    If re.Test(fName) Then
+        Set m = re.Execute(fName)
+        GetDefectClass = m(0).SubMatches(0)
+    Else
+        GetDefectClass = ""
+    End If
+End Function
+
+Function GetXYFromDollarFormat(fName As String, axis As String) As Long
+    Dim re As Object
+    Dim m As Object
+
+    Set re = CreateObject("VBScript.RegExp")
+    re.Pattern = "\$(\d+)\$(\d+)\$"
+    re.Global = False
+
+    If re.Test(fName) Then
+        Set m = re.Execute(fName)
+        If axis = "x" Then
+            GetXYFromDollarFormat = CLng(m(0).SubMatches(0))
+        ElseIf axis = "y" Then
+            GetXYFromDollarFormat = CLng(m(0).SubMatches(1))
+        End If
+    Else
+        GetXYFromDollarFormat = 0
+    End If
+End Function
+
