@@ -40,7 +40,11 @@ Private Sub checkbox_Click()
     MaxStepCount = ThisWorkbook.Sheets(1).Range("C6").Value
     Set pSwitch = ThisWorkbook.Sheets(2).Range("B2").Offset(x - 1, y - 1)
     
-    For j = 1 To MaxStepCount
+    ScheduleMaxStepCount = ThisWorkbook.Sheets("Switches").Cells(1 + x, Columns.Count).End(xlToLeft).Column - 1
+    If y > ScheduleMaxStepCount Then Exit Sub
+    
+    
+    For j = 1 To ScheduleMaxStepCount
         Active = pRange.Value
         
         If j <> y Then
@@ -71,33 +75,67 @@ Private Sub checkbox_Click()
         Schedule = ThisWorkbook.Sheets(2).Range("A2").Offset(x - 1, 0).Value
         Step = ThisWorkbook.Sheets(2).Range("B1").Offset(0, y - 1).Value
         
-        formAutoInkout.Controls("lblRemarks_" & Format(x, "00")).Caption = Remarks
+        'formAutoInkout.Controls("lblRemarks_" & Format(x, "00")).Caption = Remarks
         
     End If
-    'MsgBox checkbox.Name
-    Schedule = ThisWorkbook.Sheets("Switches").Range("A" & x + 1).Value
-    Bumping2Directory = ThisWorkbook.Sheets("Settings").Range("B3")
-    InkoutMapDirectory = Bumping2Directory & "\W25" & Left(Schedule, 2) & "\" & Schedule
+    
+    
+    Schedule = ThisWorkbook.Sheets("Subfolders").Range("B2").Offset(x, 0).Value
+    CumulativeCount = ThisWorkbook.Sheets("Subfolders").Range("E2").Offset(x, 0).Value
+    
+    
+    InkoutMapDirectory = ThisWorkbook.Sheets("Subfolders").Range("G3").Offset(CumulativeCount + y - 1, 0).Value
+    
+    
     Directory = InkoutMapDirectory & "\" & checkbox.Caption
     
-    Remarks = ""
+    InkoutMapList = Module1.GetMapList(InkoutMapDirectory)
     
-    'PanelMapList = GetMapList(PanelMapDirectory & "\" & Schedule & "*")
-    
-    InkoutMapList = Module1.GetMapList(Directory)
-    If UBound(InkoutMapList) < 0 Then Exit Sub
-    
+    If IsEmpty(InkoutMapList) Then
+        MsgBox "No maps"
+        Exit Sub
+    End If
+    'Remarks = ""
+    Dim Remarks(1 To 12) As String, ImpactRemarks() As String
+    Dim ImpactWaferCount As Integer
     For Each Map In InkoutMapList
         
-        'Module1.ConvertDefectCode (Directory & "\" & Map)
-        InkoutMapWaferID = Module1.GetWaferID(Map)
-        Remarks = Remarks & ",S" & Module1.GetWaferID(InkoutMapWaferID) & "-" & Module1.CountF30(Directory & "\" & Map) & "ea"
+        filePath = InkoutMapDirectory & "\" & Map
         
+        InkoutMapWaferID = Module1.GetWaferID(filePath)
+        DefectCount = Module1.CountF30(filePath)
+        If DefectCount > 0 Then
+            ImpactWaferCount = ImpactWaferCount + 1
+            Remarks(InkoutMapWaferID) = "S" & InkoutMapWaferID & "-" & DefectCount & "ea"
+        
+            'Remarks = Remarks & ",S" & InkoutMapWaferID & "-" & Module1.CountF30(filePath) & "ea"
+        End If
     Next
     
     
-    Remarks = Right(Remarks, Len(Remarks) - 1)
-    formAutoInkout.Controls("lblRemarks_" & Format(x, "00")).Caption = Remarks
+    
+    If ImpactWaferCount = 0 Then
+        RemarksString = "No F30 detected"
+        formAutoInkout.Controls("lblRemarks_" & Format(x, "00")).Caption = RemarksString
+        Exit Sub
+    End If
+    
+    ReDim ImpactRemarks(0 To ImpactWaferCount - 1)
+    Dim Count As Integer
+    Count = 0
+    For i = 1 To 12
+        Remark = Remarks(i)
+        If Remark <> "" Then
+            
+            ImpactRemarks(Count) = Remark
+            Count = Count + 1
+        End If
+    
+    Next
+    
+    RemarksString = Join(ImpactRemarks, ",")
+    
+    formAutoInkout.Controls("lblRemarks_" & Format(x, "00")).Caption = RemarksString
     
 End Sub
 
