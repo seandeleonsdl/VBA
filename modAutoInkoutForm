@@ -26,6 +26,87 @@ Private Sub subSetCSSStyling()
     
     
     
+    
+    Dim wsSettings As Worksheet
+    Set wsSettings = ThisWorkbook.Sheets("Settings")
+    PROPERTIES_MaxStepCount = wsSettings.Range("B6").Value2
+    PROPERTIES_RowHeight = 22
+    PROPERTIES_ScheduleWidth = 65
+    PROPERTIES_StepsWidth = 42
+    Padding = 2
+    
+    
+    
+    Set lblTemporary = Me.Controls.Add("Forms.Label.1", "lblScheduleHeaderBackground", True)
+    lblTemporary.Height = PROPERTIES_RowHeight
+    lblTemporary.Width = PROPERTIES_ScheduleWidth
+    lblTemporary.Left = Me.lblWorkArea.Left + Padding
+    lblTemporary.Top = Me.lblWorkArea.Top + Padding
+    lblTemporary.BackColor = RGB(220, 234, 247)
+    
+    Set lblTemporary2 = Me.Controls.Add("Forms.Label.1", "lblScheduleHeader", True)
+    
+    lblTemporary2.AutoSize = True
+    lblTemporary2.WordWrap = False
+    lblTemporary2.Caption = "Schedule"
+    lblTemporary2.Font.Name = "Courier New"
+    lblTemporary2.Font.Size = 8
+    lblTemporary2.FontBold = True
+    lblTemporary2.BackStyle = fmBackStyleTransparent
+
+    lblTemporary2.Left = lblTemporary.Left + (lblTemporary.Width - lblTemporary2.Width) / 2
+    lblTemporary2.Top = lblTemporary.Top + (lblTemporary.Height - lblTemporary2.Height) / 2
+    
+    '----------------------
+    ' Inkout Folder Header
+    '----------------------
+    Set lblTemporary = Me.Controls.Add("Forms.Label.1", "lblInkoutFolderHeaderBackground", True)
+    Set lblReference = Me.Controls("lblScheduleHeaderBackground")
+    lblTemporary.Height = PROPERTIES_RowHeight
+    lblTemporary.Width = PROPERTIES_MaxStepCount * PROPERTIES_StepsWidth + (PROPERTIES_MaxStepCount - 1) * Padding
+    lblTemporary.Left = lblReference.Left + lblReference.Width + Padding
+    lblTemporary.Top = Me.lblWorkArea.Top + Padding
+    lblTemporary.BackColor = RGB(220, 234, 247)
+    
+    Set lblTemporary2 = Me.Controls.Add("Forms.Label.1", "lblInkoutFolderHeader", True)
+    
+    lblTemporary2.AutoSize = True
+    lblTemporary2.WordWrap = False
+    lblTemporary2.Caption = "Inkout Folder"
+    lblTemporary2.Font.Name = "Courier New"
+    lblTemporary2.Font.Size = 8
+    lblTemporary2.FontBold = True
+    lblTemporary2.BackStyle = fmBackStyleTransparent
+
+    lblTemporary2.Left = lblTemporary.Left + (lblTemporary.Width - lblTemporary2.Width) / 2
+    lblTemporary2.Top = lblTemporary.Top + (lblTemporary.Height - lblTemporary2.Height) / 2
+    
+    '----------------
+    ' Remarks Header
+    '----------------
+    Set lblTemporary = Me.Controls.Add("Forms.Label.1", "lblRemarksHeaderBackground", True)
+    Set lblReference = Me.Controls("lblInkoutFolderHeaderBackground")
+    lblTemporary.Height = PROPERTIES_RowHeight
+    lblTemporary.Width = 180
+    lblTemporary.Left = lblReference.Left + lblReference.Width + Padding
+    lblTemporary.Top = Me.lblWorkArea.Top + Padding
+    lblTemporary.BackColor = RGB(220, 234, 247)
+    
+    Set lblTemporary2 = Me.Controls.Add("Forms.Label.1", "lblRemarksHeader", True)
+    
+    lblTemporary2.AutoSize = True
+    lblTemporary2.WordWrap = False
+    lblTemporary2.Caption = "Remarks"
+    lblTemporary2.Font.Name = "Courier New"
+    lblTemporary2.Font.Size = 8
+    lblTemporary2.FontBold = True
+    lblTemporary2.BackStyle = fmBackStyleTransparent
+
+    lblTemporary2.Left = lblTemporary.Left + (lblTemporary.Width - lblTemporary2.Width) / 2
+    lblTemporary2.Top = lblTemporary.Top + (lblTemporary.Height - lblTemporary2.Height) / 2
+    
+    Me.lblWorkArea.Width = lblTemporary.Left - Me.lblWorkArea.Left + lblTemporary.Width + Padding
+    
 End Sub
 
 
@@ -33,9 +114,9 @@ End Sub
 
 
 Private Sub UserForm_Initialize()
-            
+                    
     '------------------------
-    ' 1.) Program properties
+    ' 1. Retrieve PROPERTIES
     '------------------------
     Dim wsSettings As Worksheet
     Set wsSettings = ThisWorkbook.Sheets("Settings")
@@ -45,92 +126,92 @@ Private Sub UserForm_Initialize()
     PROPERTIES_MaxScheduleCount = wsSettings.Range("B5").Value2
     PROPERTIES_MaxStepCount = wsSettings.Range("B6").Value2
     
-    PROPERTIES_StepsWidth = 30
-    PROPERTIES_StepsHeight = 18
-    
+    PROPERTIES_StepsWidth = 42
+    PROPERTIES_StepsHeight = 30
+    PROPERTIES_ScheduleWidth = 65
+    PROPERTIES_RowHeight = 22
+    Padding = 2
     
     ReDim checkStep(1 To PROPERTIES_MaxScheduleCount, 1 To PROPERTIES_MaxStepCount)
     ReDim LABEL_Schedule(1 To PROPERTIES_MaxScheduleCount) As Object
     ReDim LABEL_ScheduleBackground(1 To PROPERTIES_MaxScheduleCount) As Object
     
-    subSetCSSStyling
     
     Me.txtPanelMapDirectory.Value = PROPERTIES_PanelMapDirectory
     Me.txtInkoutMapDirectory.Value = PROPERTIES_InkoutMapDirectory
     Me.txtMergeMapDirectory.Value = PROPERTIES_MergeMapDirectory
     
-    '--------------------------------
-    ' 2.) Set-up userform aesthetics
-    '--------------------------------
+    subSetCSSStyling
+    
+    
+    '-----------------------------
+    ' 2. Set-up Userform Controls
+    '-----------------------------
     For i = 1 To PROPERTIES_MaxScheduleCount
         
-        '--------------------
-        ' 1. Setup Schedules
-        '--------------------
-        
+        '---------------------------------
+        ' 2.1 Setup lblScheduleBackground
+        '---------------------------------
         Set LABEL_ScheduleBackground(i) = Me.Controls.Add("Forms.Label.1", "lblScheduleBackground_" & Format(i, "00"), True)
-        LABEL_ScheduleBackground(i).Width = 65
-        LABEL_ScheduleBackground(i).Height = 18
-        LABEL_ScheduleBackground(i).Left = Me.lblScheduleBackground.Left
-        LABEL_ScheduleBackground(i).Top = Me.lblScheduleBackground.Top + Me.lblScheduleBackground.Height + 6 + 24 * (i - 1)
-        LABEL_ScheduleBackground(i).BackColor = RGB(240, 240, 240)
-        LABEL_ScheduleBackground(i).Visible = False
+        LABEL_ScheduleBackground(i).Width = PROPERTIES_ScheduleWidth
+        LABEL_ScheduleBackground(i).Height = PROPERTIES_RowHeight
+        LABEL_ScheduleBackground(i).Left = Me.lblWorkArea.Left + Padding
+        LABEL_ScheduleBackground(i).Top = Me.lblWorkArea.Top + PROPERTIES_RowHeight + Padding + (PROPERTIES_RowHeight + Padding) * (i - 1)
         
+        LABEL_ScheduleBackground(i).BackColor = RGB(250, 250, 250)
+        
+        '-----------------------
+        ' 2.2 Setup lblSchedule
+        '-----------------------
         Set LABEL_Schedule(i) = Me.Controls.Add("Forms.Label.1", "lblSchedule_" & Format(i, "00"), True)
-        LABEL_Schedule(i).Width = 65
-        LABEL_Schedule(i).Left = Me.lblScheduleBackground.Left + 6
-        LABEL_Schedule(i).Top = Me.lblScheduleBackground.Top + Me.lblScheduleBackground.Height + 6 + 4 + 24 * (i - 1)
+        LABEL_Schedule(i).Width = PROPERTIES_ScheduleWidth
+        LABEL_Schedule(i).Height = PROPERTIES_RowHeight
+        LABEL_Schedule(i).Left = LABEL_ScheduleBackground(i).Left + 6
+        LABEL_Schedule(i).Top = LABEL_ScheduleBackground(i).Top + 4
+        
         LABEL_Schedule(i).BackStyle = fmBackStyleTransparent
         LABEL_Schedule(i).Caption = ""
         LABEL_Schedule(i).Font.Name = "Courier New"
         LABEL_Schedule(i).Font.Size = 8
         
-        '----------------
-        ' Setup Remarks
-        '---------------
+        '----------------------
+        ' 2.3 Setup lblRemarks
+        '----------------------
         Set labelInstance = Me.Controls.Add("Forms.Label.1", "lblRemarks_" & Format(i, "00"), True)
-        labelInstance.Left = LABEL_ScheduleBackground(i).Left + LABEL_ScheduleBackground(i).Width + 6 + (PROPERTIES_StepsWidth + 6) * (PROPERTIES_MaxStepCount)
+        labelInstance.Left = LABEL_ScheduleBackground(i).Left + LABEL_ScheduleBackground(i).Width + Padding + (PROPERTIES_StepsWidth + Padding) * (PROPERTIES_MaxStepCount)
         labelInstance.Top = LABEL_ScheduleBackground(i).Top
-        labelInstance.Width = lblRemarks.Width
-        labelInstance.BackColor = RGB(240, 240, 240)
+        labelInstance.Width = 180
+        labelInstance.Height = PROPERTIES_RowHeight
+        
+        labelInstance.BackColor = RGB(250, 250, 250)
         labelInstance.Font.Name = "Courier New"
         labelInstance.Font.Size = 8
         
-        
+        '---------------------
+        ' 2.4 Setup checkStep
+        '---------------------
         For j = 1 To PROPERTIES_MaxStepCount
         
             checkboxName = "checkStep_" & Format(i, "00") & "_" & Format(j, "00")
             Set checkboxInstance = Me.Controls.Add("Forms.Label.1", checkboxName, True)
             
-            '----------------
-            ' a.) Dimensions
-            '----------------
             checkboxInstance.Width = PROPERTIES_StepsWidth
-            checkboxInstance.Height = PROPERTIES_StepsHeight
-            checkboxInstance.Left = LABEL_ScheduleBackground(i).Left + LABEL_ScheduleBackground(i).Width + 6 + (checkboxInstance.Width + 6) * (j - 1)
+            checkboxInstance.Height = PROPERTIES_RowHeight
+            checkboxInstance.Left = LABEL_ScheduleBackground(i).Left + LABEL_ScheduleBackground(i).Width + Padding + (checkboxInstance.Width + Padding) * (j - 1)
             checkboxInstance.Top = LABEL_ScheduleBackground(i).Top
             
-            '-------------
-            ' c.) Styling
-            '-------------
             checkboxInstance.SpecialEffect = fmButtonEffectFlat
-            checkboxInstance.BackColor = RGB(240, 240, 240)
-            checkboxInstance.ForeColor = RGB(255, 255, 255)
+            checkboxInstance.BackColor = RGB(250, 250, 250)
             checkboxInstance.Font.Name = "Courier New"
             checkboxInstance.Font.Size = 8
-            checkboxInstance.Font.Bold = True
             checkboxInstance.Caption = ""
-            If i > 1 Then checkboxInstance.Visible = False
+            checkboxInstance.WordWrap = False
             
             Set checkStep(i, j) = New Class1
             Set checkStep(i, j).checkbox = checkboxInstance
-            Set checkStep(i, j).Range = ThisWorkbook.Sheets(2).Range("B2").Offset(i - 1, j - 1)
+            Set checkStep(i, j).Range = ThisWorkbook.Sheets("Switches").Range("B2").Offset(i - 1, j - 1)
             checkStep(i, j).Row = i
-            
-          
-            
-            'toggleYes = Me.Controls.Add("Forms.Label.1", checkboxName, True)
-            
+                    
         
         Next
         
@@ -229,47 +310,36 @@ End Sub
 
 Private Sub btnInkout_Click()
     
-    Dim ScheduleCount As Integer, StepCount As Integer
-    ScheduleCount = ThisWorkbook.Sheets("Switches").Range("A" & Rows.count).End(xlUp).Row - 1
-    StepCount = ThisWorkbook.Sheets("Settings").Range("B5")
+    Dim ScheduleCount As Integer
+    ScheduleCount = ThisWorkbook.Sheets("Switches").Range("A" & Rows.Count).End(xlUp).Row - 1
+    
     
     Dim InkoutSchedules As String
     
-    Bumping2Directory = ThisWorkbook.Sheets("Settings").Range("B3")
     For i = 1 To ScheduleCount
+        
         Schedule = ThisWorkbook.Sheets("Switches").Range("A2").Offset(i - 1, 0).Value2
-        InkoutMapDirectory = Bumping2Directory & "\W25" & Left(Schedule, 2) & "\"
+        ScheduleMaxStepCount = ThisWorkbook.Sheets("Switches").Cells(1 + i, Columns.Count).End(xlToLeft).Column - 1
         
-        For j = 1 To StepCount
+        For j = 1 To ScheduleMaxStepCount
         
-            'Step = ThisWorkbook.Sheets(2).Range("B1").Offset(0, j - 1).Value2
+            
             NeedInkout = ThisWorkbook.Sheets("Switches").Range("B2").Offset(i - 1, j - 1).Value
                 
             If NeedInkout Then
-        
-                Step = Me.Controls("checkStep_" & Format(i, "00") & "_" & Format(j, "00")).Caption
-                InkoutSchedules = InkoutSchedules & "|" & Schedule & "\" & Step
-                InkoutSchedule = Schedule & "\" & Step
-                Inkout InkoutMapDirectory & InkoutSchedule, Schedule, i
+            
+                CumulativeCount = ThisWorkbook.Sheets("Subfolders").Range("E3").Offset(i - 1, 0).Value
+                InkoutMapDirectory = ThisWorkbook.Sheets("Subfolders").Range("G3").Offset(CumulativeCount + j - 1, 0).Value
+                Module1.Inkout Schedule, InkoutMapDirectory
+
             End If
             
         Next
     Next
-    'MsgBox InkoutSchedules
-    'InkoutSchedules = Right(InkoutSchedules, Len(InkoutSchedules) - 1)
     
-    
-    
-    'For Each InkoutSchedule In Split(InkoutSchedules, "|")
-            
-        
-        'MsgBox InkoutMapDirectory & InkoutSchedule
-    '    Inkout InkoutMapDirectory & InkoutSchedule, Split(InkoutSchedule, "\")(0)
-        'Inkout Split(InkoutSchedule, " ")(0), Split(InkoutSchedule, " ")(1)
-    'Next
     
     MsgBox "Done Inkout"
-'    MsgBox InkoutSchedules
+
 
 End Sub
 
@@ -284,223 +354,148 @@ End Sub
 
 Private Sub txtInkoutSchedules_Change()
     
-    '----------------------
-    ' TextBox Input Filter
-    '----------------------
-    txtInkoutSchedules.Value = UCase(txtInkoutSchedules.Value)
+    '------------------------------------
+    ' 1. Cleans txtInkoutSchedules Input
+    '------------------------------------
+    '--------------------------------------
+    ' 1.1 Capitalize and delete whitespace
+    '--------------------------------------
+    txtInkoutScheduleInput = txtInkoutSchedules.Value
+    txtInkoutScheduleInput = Replace(UCase(txtInkoutScheduleInput), " ", "")
     
-    If Right(txtInkoutSchedules.Value, 1) = vbLf Then
-        txtInkoutSchedules.Value = Left(txtInkoutSchedules.Value, Len(txtInkoutSchedules.Value) - 2)
-        Exit Sub
-    End If
+    '----------------------------------------------
+    ' 1.2 Adds inputs with 10 characters long only
+    '----------------------------------------------
+    Dim ScheduleList(0 To 20) As Variant, ScheduleCount As Integer
+    ScheduleCount = 0
+    For Each Schedule In Split(txtInkoutSchedules.Value, vbNewLine)
+        If Len(Schedule) = 10 Then
+            
+            ScheduleList(ScheduleCount) = Schedule
+            ScheduleCount = ScheduleCount + 1
+        End If
+    Next
     
-    If Len(txtInkoutSchedules.Value) < 10 Then Exit Sub
-    Schedule = txtInkoutSchedules.Value
-    
-    '---------------------------------
-    ' 1.) Retrieve program properties
-    '---------------------------------
-    PROPERTIES_MaxScheduleCount = ThisWorkbook.Sheets(1).Range("C5").Value2
-    PROPERTIES_MaxStepCount = ThisWorkbook.Sheets(1).Range("C6").Value2
+    '--------------------------------
+    ' 2. Retrieve program properties
+    '--------------------------------
+    PROPERTIES_MaxScheduleCount = ThisWorkbook.Sheets("Settings").Range("B5").Value2
+    PROPERTIES_MaxStepCount = ThisWorkbook.Sheets("Settings").Range("B6").Value2
     'IN/6440/AEI/6730/6630/6733/6688/6905
     
     
     '------------------------------------------------------------------------------------------------------
     ' 2. Reset/clear "switches"; these switches is used to check which steps the user has chosen to inkout
     '------------------------------------------------------------------------------------------------------
+    ThisWorkbook.Sheets("Switches").UsedRange.Value = ""
+    ThisWorkbook.Sheets("Subfolders").Range("B3:G" & Rows.Count).Clear
+    
     For i = 1 To PROPERTIES_MaxScheduleCount
+    
+        Me.Controls("lblScheduleBackground_" & Format(i, "00")).BackColor = RGB(250, 250, 250)
+        Me.Controls("lblSchedule_" & Format(i, "00")).Caption = ""
+        
         For j = 1 To PROPERTIES_MaxStepCount
-            Me.Controls("checkStep_" & Format(i, "00") & "_" & Format(j, "00")).BackColor = RGB(240, 240, 240)
+            
+            Me.Controls("checkStep_" & Format(i, "00") & "_" & Format(j, "00")).BackColor = RGB(250, 250, 250)
             Me.Controls("checkStep_" & Format(i, "00") & "_" & Format(j, "00")).Caption = ""
         Next
     Next
-    
-    'FirstCell = "B2"
-    'LastCell = Replace(ThisWorkbook.Sheets("Switches").Cells(1 + PROPERTIES_MaxScheduleCount, 1 + PROPERTIES_MaxStepCount).Address, "$", "")
-    'ThisWorkbook.Sheets("Switches").Range(FirstCell & ":" & LastCell).Value = ""
-    ThisWorkbook.Sheets("Switches").UsedRange.Value = ""
-    
-  
-    
-    
-    Dim StepList() As Variant, StepCount As Integer
-    ReDim StepList(1 To PROPERTIES_MaxStepCount)
-    
-    
-    
-    Dim Active() As Variant
-    ReDim Active(1 To PROPERTIES_MaxScheduleCount, 1 To PROPERTIES_MaxStepCount)
-
-    Dim StepListString As String
-    'StepList(1) = 6730
-    StepListString = StepListString & "[6730]"
-    
-    
-    
-    '-----------------------------------------------
-    ' Get all the available steps for each schedule
-    '-----------------------------------------------
-    
-    Dim ScheduleList As Variant, WorkWeek As String
-    ScheduleList = Split(txtInkoutSchedules.Value, vbNewLine)
-    ScheduleCount = UBound(ScheduleList) + 1
-    WorkWeek = Right(Year(Now), 2)
-    
-    '(1) Get Directories
-    InkoutMapWorkWeek = Right(Year(Now), 2)
-    InkoutMapWorkWeek = Right(Year(Now) - 1, 2)
-    
-    InkoutMapScheduleDigits = Left(Schedule, 2)
-    InkoutMapDirectory = Me.txtInkoutMapDirectory.Value & "\W" & InkoutMapWorkWeek & InkoutMapScheduleDigits
-    
-    For i = 1 To ScheduleCount
-        For j = 1 To PROPERTIES_MaxStepCount
-            ThisWorkbook.Sheets("Switches").Range("B2").Offset(i - 1, j - 1).Value = False
-        Next
-    Next
-    
-    
-    
+        
     '------------------------------------------------------
     ' For each schedule, get a list of all available steps
     '------------------------------------------------------
-    For i = 0 To UBound(ScheduleList)
-    
-        Me.Controls("lblSchedule_" & Format(i + 1, "00")).Caption = ScheduleList(i)
-        ThisWorkbook.Sheets("Subfolders").UsedRange.Clear
-        StepCount = 0
-        For j = 1 To PROPERTIES_MaxStepCount
-            StepList(j) = ""
-        Next
+    Dim Summary() As Variant
+    ReDim Summary(ScheduleCount, 4)
+    Dim SubfolderCount As Integer
+    Dim CumulativeCount As Integer
+    CumulativeCount = 0
+    For i = 0 To ScheduleCount - 1
         
+        Schedule = ScheduleList(i)
+        Me.Controls("lblSchedule_" & Format(i + 1, "00")).Caption = Schedule
+        Me.Controls("lblScheduleBackground_" & Format(i + 1, "00")).BackColor = RGB(242, 242, 242)
+        
+        InkoutMapScheduleDigits = Left(Schedule, 2)
+        
+        '-----------------------------------------------------
+        ' 1. Get Subfolders with Maps from the root directory
+        '    Also loops through two years/workweek
+        '-----------------------------------------------------
+        LastRow_1 = ThisWorkbook.Sheets("Subfolders").Range("F" & Rows.Count).End(xlUp).Row
+        MotherLotID = ""
+        For j = 0 To 1
+            
+            InkoutMapWorkWeek = Right(Year(Now) - j, 2)
+            InkoutMapDirectory = Me.txtInkoutMapDirectory.Value & "\W" & InkoutMapWorkWeek & InkoutMapScheduleDigits
+            'MsgBox InkoutMapDirectory & "\" & Schedule
+            If Not IsEmpty(Module1.GetMotherLotID(InkoutMapDirectory & "\" & Schedule)) Then
+              
+                For Each Map In Module1.GetMotherLotID(InkoutMapDirectory & "\" & Schedule)
+                    If InStr(1, Map, "-AEI.", vbTextCompare) > 0 Then
+                        MotherLotID = Split(Map, "-")(0)
+                        Exit For
+                    End If
+             '       MsgBox Map
+                    
+                Next
+            End If
+            Module1.RunFolderScan InkoutMapDirectory & "\" & Schedule
+        Next
+        LastRow_2 = ThisWorkbook.Sheets("Subfolders").Range("F" & Rows.Count).End(xlUp).Row
+        SubfolderCount = LastRow_2 - LastRow_1
+        
+        
+        'If i > 0 Then CumulativeCount = SubfolderCount + Summary(i - 1, 2)
+        'Summary(i, 3) = CumulativeCount
+        'Summary(i, 3) = SubfolderCount + IIf(i > 0, Summary(i - 1, 2), 0)
         '--------------------------------------------
         ' If step cannot be found in Bumping2 folder
         '--------------------------------------------
-        Module1.subGetSubfolders InkoutMapDirectory & "\" & ScheduleList(i), 1
-        Module1.subFilterMaps InkoutMapDirectory & "\" & ScheduleList(i)
-    
+        
         Me.Controls("lblScheduleBackground_" & Format(i + 1, "00")).Visible = True
         
-        SubfolderCount = ThisWorkbook.Sheets("Subfolders").Range("B" & Rows.count).End(xlUp).Row
-        
         For j = 1 To SubfolderCount
-            HaveMap = ThisWorkbook.Sheets("Subfolders").Range("C" & j).Value
-            If HaveMap Then
-                
-                DirectoryWithMap = ThisWorkbook.Sheets("Subfolders").Range("A" & j).Value
-                
-                StepCount = StepCount + 1
-                StepList(StepCount) = DirectoryWithMap
-                
-            End If
+            'MsgBox CumulativeCount + j
+            ThisWorkbook.Sheets("Switches").Range("B2").Offset(i, j - 1).Value = False
+            StepName = ThisWorkbook.Sheets("Subfolders").Range("F2").Offset(CumulativeCount + j, 0).Value
+            Me.Controls("checkStep_" & Format(i + 1, "00") & "_" & Format(j, "00")).BackColor = RGB(242, 242, 242) 'Light Blue
+            Me.Controls("checkStep_" & Format(i + 1, "00") & "_" & Format(j, "00")).Caption = Replace(StepName, "\", "\" & vbNewLine)
+            Me.Controls("checkStep_" & Format(i + 1, "00") & "_" & Format(j, "00")).Visible = True
+            StepFolderName = ThisWorkbook.Sheets("Subfolders").Range("F" & 2 + j).Value
+            
         Next
-        
-        For j = 1 To StepCount
-            Me.Controls("checkStep_" & Format(i + 1, "00") & "_" & Format(j, "00")).Caption = StepList(j)
-        Next
-        
-        For Each StepFolder In Split(Directories, "|")
-        
-            '----------------------------------
-            ' Step Folder Criteria; what is a step folder?
-            '----------------------
-            'IsStepFolder = UCase(StepFolder) <> "ORG"
-            'IsStepFolder = StepFolder <> "AEI"
-            StepFolderName = Split(StepFolder, "\")(UBound(Split(StepFolder, "\")))
-            
-            
-            'MsgBox "step folder: " & StepFolder
-            
-            IsStepFolder = (GetAttr(StepFolder) And vbDirectory) = vbDirectory
-            IsStepFolder = IsStepFolder And Len(StepFolderName) >= 4
-            
-            'MsgBox "StepFolderName: " & StepFolderName & "Is Step Folder? " & IsStepFolder
-            
-            'If (GetAttr(folderPath & item) And vbDirectory) = vbDirectory T
-            
-            'MsgBox "enteringfing if isstep"
-            If IsStepFolder Then
-                
-                '---------------------------------------------------------------------------
-                ' Is this StepFolder in StepListOfSteps? If NotIncluded, add it to the list
-                '---------------------------------------------------------------------------
-                NotIncluded = InStr(1, StepListString, StepFolderName) = 0
-                If NotIncluded Then
-                    StepListString = StepListString & "[" & StepFolder & "]"
-                    StepCount = StepCount + 1
-                    StepList(StepCount) = StepFolderName
-                End If
-                
-                
-                For k = 1 To StepCount
-                    
-                          
-                    If StepList(j) = StepFolder Then
-                 
-                        Active(i + 1, j) = False
-                
-                        Me.Controls("checkStep_" & Format(i + 1, "00") & "_" & Format(j, "00")).BackColor = RGB(220, 234, 247) ' Light Blue
-                        Me.Controls("checkStep_" & Format(i + 1, "00") & "_" & Format(j, "00")).ForeColor = RGB(0, 0, 0)
-                    
-                    End If
-                    
-                Next
-                
-                Files = Files & "\" & StepFolder
-            End If
-        Next
+        Summary(i, 0) = Schedule
+        If Int(Right(Schedule, 2)) <= 2 Then
+            MotherLotID = Schedule
+        ElseIf MotherLotID = "" Then
+            Me.Controls("lblRemarks_" & Format(i + 1, "00")).Caption = "No Mother Lot ID"
+        End If
+        Summary(i, 1) = MotherLotID
+        Summary(i, 2) = SubfolderCount
+        Summary(i, 3) = CumulativeCount
+        CumulativeCount = CumulativeCount + SubfolderCount
         
 SkipLot:
     Next
+    ThisWorkbook.Sheets("Subfolders").Range("B3:E" & 2 + ScheduleCount).Value = Summary
+
     
-    
-    LastCell = Replace(ThisWorkbook.Sheets(2).Cells(1 + ScheduleCount, 1 + StepCount).Address, "$", "")
-    'ThisWorkbook.Sheets(2).Range("B2:" & LastCell).Value = Active
-    
-    For i = 1 To ScheduleCount
-        For j = 1 To StepCount
-            
-            Me.Controls("checkStep_" & Format(i, "00") & "_" & Format(j, "00")).BackColor = RGB(240, 240, 240)
-            Me.Controls("checkStep_" & Format(i, "00") & "_" & Format(j, "00")).ForeColor = RGB(126, 126, 126)
-            Me.Controls("checkStep_" & Format(i, "00") & "_" & Format(j, "00")).Visible = True
-            
-                        
-            If Active(i, j) <> "N/A" Then
-                Me.Controls("checkStep_" & Format(i, "00") & "_" & Format(j, "00")).BackColor = RGB(220, 234, 247) ' Light Blue
-                Me.Controls("checkStep_" & Format(i, "00") & "_" & Format(j, "00")).ForeColor = RGB(0, 0, 0)
-            
-            End If
-            
-        Next
-    Next
-    
-    
-    
-    
-    
+ 
+   
     '----------------------------------------------
     ' Update each control to reflect each schedule
     '----------------------------------------------
-    Dim Schedules() As String, Steps() As Variant
-    ReDim Schedules(0 To UBound(ScheduleList) + 1, 1)
-    ReDim Steps(0, StepCount)
-    For i = 1 To UBound(ScheduleList) + 1
-        'Me.Controls("labelSchedule_" & Format(i, "00")).Caption = ScheduleList(i - 1)
+    Dim Schedules() As String
+    ReDim Schedules(0 To ScheduleCount, 1)
+    For i = 1 To ScheduleCount + 1
         Schedules(i - 1, 0) = ScheduleList(i - 1)
         
-        For j = 1 To StepCount
-    
-            'Me.Controls("checkStep_" & Format(i, "00") & "_" & Format(j, "00")).Caption = StepList(j)
-            Steps(0, j - 1) = StepList(j)
-        Next
-    
     Next
     
     ThisWorkbook.Sheets("Switches").Range("A2:A" & 1 + ScheduleCount).Value = Schedules
-    StepListString = Right(StepListString, Len(StepListString) - 1)
     
     
-    Exit Sub
     
 End Sub
 
