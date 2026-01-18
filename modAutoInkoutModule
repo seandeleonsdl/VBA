@@ -1,35 +1,120 @@
 Private checkStep() As Class1
 
-Public Sub subGetSubfolders(ByVal Directory As String, ByRef r As Long)
+
+Public Function RunFolderScan(ByVal Directory As String)
+
+    Dim results As Variant
+    Dim r As Long
+    Const MAX_ROWS As Long = 100000
+    
+    Dim RootDir As String
+    RootDir = Directory
+    
+    If Right(RootDir, 1) = "\" Then
+        RootDir = Left(RootDir, Len(RootDir) - 1)
+    End If
+    
+    ReDim results(1 To MAX_ROWS, 1 To 2)
+    r = 0
+    CheckForMap = True
+    
+    Call subGetSubfolders(RootDir, RootDir, results, r, CheckForMap)
+    
+    
+    If r = 0 Then Exit Function
+   
+    Dim LastRow As Integer
+    LastRow = ThisWorkbook.Sheets("Subfolders").Range("F" & Rows.Count).End(xlUp).Row + 1
+    ThisWorkbook.Sheets("Subfolders").Range("F" & LastRow).Resize(r, 2).Value = results
+        
+    
+
+End Function
+
+Public Function subGetSubfolders(ByVal Directory As String, _
+                                 ByVal RootDir As String, _
+                                 ByRef data As Variant, _
+                                 ByRef r As Long, _
+                                 ByVal CheckForMap As Boolean) As Boolean
 
     Dim fso As Object
     Dim ParentFolder As Object
     Dim Subfolder As Object
+    Dim RelativePath As String
+    Dim maps As Variant
+    Dim hasMapHere As Boolean
+    Dim hasMapBelow As Boolean
 
     Set fso = CreateObject("Scripting.FileSystemObject")
+
+    On Error Resume Next
     Set ParentFolder = fso.GetFolder(Directory)
-    
+    On Error GoTo 0
+
+    If ParentFolder Is Nothing Then Exit Function
+
+    ' -----------------------
+    ' 1. Recurse ALWAYS
+    ' -----------------------
     For Each Subfolder In ParentFolder.Subfolders
-        
-        ThisWorkbook.Sheets("Subfolders").Cells(r, 1).Value = Subfolder.Name
-        ThisWorkbook.Sheets("Subfolders").Cells(r, 2).Value = Subfolder.Path
-        'Stream = Stream & "|" & Subfolder.Path
-        r = r + 1
-        subGetSubfolders Subfolder.Path, r
+        If subGetSubfolders(Subfolder.Path, RootDir, data, r, CheckForMap) Then
+            hasMapBelow = True
+        End If
     Next Subfolder
-        
-End Sub
+
+    ' -----------------------
+    ' 2. Check THIS folder
+    ' -----------------------
+    If CheckForMap Then
+        maps = GetMapList(Directory)
+        hasMapHere = Not IsEmpty(maps)
+    End If
+
+    ' -----------------------
+    ' 3. Record ONLY if THIS folder has maps
+    ' -----------------------
+    If hasMapHere Then
+        r = r + 1
+
+        If r > UBound(data, 1) Then
+            Err.Raise vbObjectError + 1, , "Array size exceeded"
+        End If
+
+        RelativePath = mid(Directory, Len(RootDir) + 2)
+        data(r, 1) = RelativePath
+        data(r, 2) = Directory
+    End If
+
+    ' -----------------------
+    ' 4. Return info to parent
+    ' -----------------------
+    subGetSubfolders = hasMapHere Or hasMapBelow
+
+End Function
+
+
+
+
+
+
 
 Public Sub subFilterMaps(InkoutDirectory As String)
+    
+    '-----------------------------------------
+    ' 1. Check how many folders are available
+    '-----------------------------------------
     Dim SubfolderCount As Integer
-    SubfolderCount = ThisWorkbook.Sheets("Subfolders").Range("B" & Rows.count).End(xlUp).Row
+    SubfolderCount = ThisWorkbook.Sheets("Subfolders").Range("E" & Rows.Count).End(xlUp).Row
     If SubfolderCount = 0 Then Exit Sub
     
-    Schedule = Split(ThisWorkbook.Sheets("Subfolders").Range("B" & 1).Value, "\")(UBound(Split(ThisWorkbook.Sheets("Subfolders").Range("B" & 1).Value, "\")) - 1)
-    'MsgBox Schedule
+    '------------------------------------------
+    
+    Schedule = Split(InkoutDirectory, "\")(UBound(Split(InkoutDirectory, "\")))
+    MsgBox Schedule
     
     For i = 1 To SubfolderCount
-        Directory = ThisWorkbook.Sheets("Subfolders").Range("B" & i).Value
+        Directory = ThisWorkbook.Sheets("Subfolders").Range("E" & i).Value
+        
         HaveMap = Dir(Directory & "\" & Schedule & "*") <> ""
         
         'MsgBox Directory & "\" & Schedule & "*"
@@ -102,61 +187,42 @@ Public Function CountF30(ByVal Filename As String)
     '-----------------
     ' Get Directories
     '-----------------
-    '(1) Get Directories
-    'InkoutMapWorkWeek = Right(Year(Now), 2)
-    'InkoutMapScheduleDigits = Left(Schedule, 2)
-    'InkoutMapDirectory = Me.txtInkoutMapDirectory & "\W" & InkoutMapWorkWeek & InkoutMapScheduleDigits
-    
-    '(2) Get Map List from Bumping2 and PanelMap
-    'MapList = GetMapList(InkoutMapDirectory & "\" & Schedule & "\" & CStr(Step) & "\")
-    
-    'For Each InkoutMap In MapList
-        
-        'InkoutMapID = GetWaferID(InkoutMap)
-        
-        fileNum = FreeFile
-        'filePath = InkoutMapDirectory & "\" & Schedule & "\" & CStr(Step) & "\" & InkoutMap
-        ThisWorkbook.Sheets(1).Range("A15").Value = Filename
-        'MsgBox "Filename is " & Filename
-        Open Filename For Input As #fileNum
-        fileContent = ""
-        
-        Do Until EOF(fileNum)
-            Line Input #fileNum, LineInstance
-            fileContent = fileContent & vbNewLine & LineInstance
-        Loop
-        Close #fileNum
-        
-        DefectCount = CountString(fileContent, "019") + CountString(fileContent, "020") + CountString(fileContent, "021") + CountString(fileContent, "030")
-        CountF30 = DefectCount
-        '(6) Sort through each PanelMap
-         
-    'Next
-    
-    
 
+    fileNum = FreeFile
+    Open Filename For Input As #fileNum
+    fileContent = ""
+        
+    Do Until EOF(fileNum)
+        Line Input #fileNum, LineInstance
+        fileContent = fileContent & vbNewLine & LineInstance
+    Loop
+    Close #fileNum
+        
+    DefectCount = CountString(fileContent, "019") + CountString(fileContent, "020") + CountString(fileContent, "021") + CountString(fileContent, "030")
+    CountF30 = DefectCount
+        
 End Function
 
 Public Function CountString(ByVal mainString As String, ByVal subString As String) As Long
     Dim position As Long
-    Dim count As Long
+    Dim Count As Long
     
-    count = 0
-    position = InStr(1, mainString, subString, vbTextCompare) ' vbTextCompare = case-insensitive
-    'MsgBox position
+    Count = 0
+    position = InStr(1, mainString, subString, vbTextCompare)
+    
     Do While position > 0
-        count = count + 1
+        Count = Count + 1
         position = InStr(position + 1, mainString, subString, vbTextCompare)
     Loop
     
-    CountString = count
+    CountString = Count
     
     
 End Function
 
 
 
-Private Sub Inkout(ByVal Schedule As String, ByVal Step As Integer)
+Public Sub Inkout(ByVal Schedule As String, ByVal MotherLotID As String, ByVal Directory As String)
 
     Dim fso As Object
     Set fso = CreateObject("Scripting.FileSystemObject")
@@ -165,15 +231,13 @@ Private Sub Inkout(ByVal Schedule As String, ByVal Step As Integer)
     ' Get Directories
     '-----------------
     '(1) Get Directories
-    InkoutMapWorkWeek = Right(Year(Now), 2)
-    InkoutMapScheduleDigits = Left(Schedule, 2)
-    InkoutMapDirectory = Me.txtInkoutMapDirectory & "\W" & InkoutMapWorkWeek & InkoutMapScheduleDigits
+    'ScheduleMaxStepCount = ThisWorkbook.Sheets("Switches").Cells(1 + x, Columns.Count).End(xlToLeft).Column - 1
     'InkoutMapDirectory =WorkWeek = Right(Year(Now), 2)
     
     
     
-    PanelMapDirectory = Me.txtPanelMapDirectory
-    MergeMapDirectory = Me.txtMergeMapDirectory
+    PanelMapDirectory = ThisWorkbook.Sheets("Settings").Range("B2").Value
+    MergeMapDirectory = ThisWorkbook.Sheets("Settings").Range("B4").Value
     
     '(2) Create Inkout Folders in MergeMapDirectory
     If Dir(MergeMapDirectory, vbDirectory) = "" Then MkDir MergeMapDirectory
@@ -183,13 +247,14 @@ Private Sub Inkout(ByVal Schedule As String, ByVal Step As Integer)
     
     
     '(3) Get Map List from Bumping2 and PanelMap
-    MapList = GetMapList(InkoutMapDirectory & "\" & Schedule & "\" & CStr(Step) & "\")
+    
+    MapList = GetMapList(Directory)
     PanelMapList = GetMapList(PanelMapDirectory & "\" & Schedule & "*")
     
     For Each InkoutMap In MapList
            
         '(4) Get InkoutMap from Bumping2
-        FileToCopy = InkoutMapDirectory & "\" & Schedule & "\" & CStr(Step) & "\" & InkoutMap
+        FileToCopy = Directory & "\" & InkoutMap
         SaveFileAs = MergeMapDirectory & "\Inkout Map\" & InkoutMap
         fso.CopyFile FileToCopy, SaveFileAs
         
@@ -208,7 +273,7 @@ Private Sub Inkout(ByVal Schedule As String, ByVal Step As Integer)
                 SaveFileAs = MergeMapDirectory & "\Panel Map\" & PanelMap
                 fso.CopyFile FileToCopy, SaveFileAs
                 
-                MergeMapContent = MergeMap("C:\Users\Sean\OneDrive\Desktop\Onyx\PanelMap\" & PanelMap, MergeMapDirectory & "\Inkout Map\" & InkoutMap)
+                MergeMapContent = MergeMap(PanelMapDirectory & "\" & PanelMap, MergeMapDirectory & "\Inkout Map\" & InkoutMap)
                 filePath = MergeMapDirectory & "\Merge Map\" & PanelMap
                 
                 If Dir(MergeMapDirectory & "\Merge Map", vbDirectory) = "" Then
@@ -251,6 +316,7 @@ Public Function MergeMap(ByVal PanelMapFilename As String, InkoutMapFilename As 
     '-----------------------
     ' Get Panel Map Content
     '-----------------------
+    MsgBox PanelMapFilename
     Open PanelMapFilename For Input As #fileNum
     
     Do Until EOF(fileNum)
@@ -263,6 +329,7 @@ Public Function MergeMap(ByVal PanelMapFilename As String, InkoutMapFilename As 
     '------------------------
     ' Get Inkout Map Content
     '------------------------
+    
     Open InkoutMapFilename For Input As #fileNum
     
     Do Until EOF(fileNum)
@@ -286,7 +353,7 @@ Public Function MergeMap(ByVal PanelMapFilename As String, InkoutMapFilename As 
     MsgBox "Ongoing merge"
     Do While Index > 0
         
-        DefectCode = Mid(PanelMapFileContent, Index + IndexOffset, 3)
+        DefectCode = mid(PanelMapFileContent, Index + IndexOffset, 3)
         MsgBox DefectCode
         If DefectCode = "000" Then
             'MsgBox "BEFORE:" & vbNewLine & PanelMapFileContent
@@ -303,7 +370,50 @@ Public Function MergeMap(ByVal PanelMapFilename As String, InkoutMapFilename As 
         
 End Function
 
+Public Function funcModifiedUBound(ByVal UBoundArray As Variant, Optional DisplayIndex As Boolean = False) As Long
+    
+    
+    Dim LowerIndex As Long, UpperIndex As Long, Delta As Long
+    Dim lastGood As Long
+    
+    '-------------------------------------
+    ' 1. Check if Variant arr is an array
+    '-------------------------------------
+    If Not IsArray(UBoundArray) Then
+        funcModifiedUBound = -1
+        Exit Function
+    End If
+    
+    On Error GoTo EmptyArray
+    
+    '----------------------------------
+    ' 2. Set the Initial Looping Range
+    '----------------------------------
+    LowerIndex = LBound(UBoundArray)
+    UpperIndex = UBound(UBoundArray)
+    On Error GoTo 0
+    
+    lastGood = LowerIndex - 1
+    
+    Do While LowerIndex <= UpperIndex
+        Delta = (LowerIndex + UpperIndex) \ 2
+        Element = UBoundArray(Delta)
+        If IsEmpty(Element) Or IsNull(Element) Or Element = "" Then
+            UpperIndex = Delta - 1
+            If DisplayIndex Then MsgBox "Empty at " & Delta
+        Else
+            lastGood = Delta
+            LowerIndex = Delta + 1
+            If DisplayIndex Then MsgBox "Found value at " & Delta
+        End If
+    Loop
+    
+    funcModifiedUBound = lastGood
+    Exit Function
 
+EmptyArray:
+    funcModifiedUBound = -1
+End Function
 
 
 Public Sub ConvertDefectCode(ByVal Filename As String)
@@ -341,217 +451,120 @@ Public Sub ConvertDefectCode(ByVal Filename As String)
 
 End Sub
 
-
-
-Public Function GetMapList(ByVal Directory As String)
+Public Function GetMotherLotID(ByVal Directory As String)
+    
+    Dim Files As String
+    Dim col As New Collection
+    Dim Filename As String
+    Dim FileIsMap As Boolean
     
     Files = ""
-    Filename = Dir(Directory & "\")
+    
+    Filename = Dir(Directory & IIf(Right(Directory, 1) = "*", "", "\"))
     
     Do While Filename <> ""
-    
-        '------------------------
-        ' File Filter Conditions
-        '------------------------
-        FileIsMap = Filename <> vbNewLine And Len(Filename) >= 6
-        FileIsMap = FileIsMap And InStr(1, Filename, Schedule) > 0
-        FileIsMap = FileIsMap And InStr(1, Filename, ".x") = 0
         
-        If FileIsMap Then Files = Files & "\" & Filename
+        If IsAEIFile(Filename) Then
+            col.Add Filename
+            
+            Files = Files & Filename
+        End If
+        
         Filename = Dir
         
     Loop
     
-    If Len(Files) = 0 Then
+    Filename = Dir(Directory & IIf(Right(Directory, 1) = "*", "", "\AEI\"))
+    Do While Filename <> ""
+    
+        If IsAEIFile(Filename) Then
+            col.Add Filename
+        End If
         
-        GetMapList = Array()
+        Filename = Dir
+        
+    Loop
+    
+    
+    If col.Count = 0 Then
+        GetMotherLotID = Empty
         Exit Function
-        
     End If
 
-    Files = Right(Files, Len(Files) - 1)
-    GetMapList = Split(Files, "\")
     
+    GetMotherLotID = CollectionToArray(col)
+    
+End Function
+
+Private Function IsAEIFile(ByVal Filename As String) As Boolean
+
+    
+    If InStr(1, Filename, "AEI", vbTextCompare) = 0 Then Exit Function
+    IsAEIFile = True
+
+End Function
+
+Public Function GetMapList(ByVal Directory As String)
+    
+    Dim Files As String
+    Dim col As New Collection
+    Dim Filename As String
+    Dim FileIsMap As Boolean
+    
+    Files = ""
+    
+    Filename = Dir(Directory & IIf(Right(Directory, 1) = "*", "", "\"))
+    
+    Do While Filename <> ""
+    
+        If IsValidMapFile(Filename) Then
+            col.Add Filename
+        End If
+        
+        Filename = Dir
+        
+    Loop
+    
+    If col.Count = 0 Then
+        GetMapList = Empty
+        Exit Function
+    End If
+
+    GetMapList = CollectionToArray(col)
+    
+End Function
+
+Private Function CollectionToArray(col As Collection) As Variant
+    Dim arr() As String
+    Dim i As Long
+
+    ReDim arr(0 To col.Count - 1)
+
+    For i = 1 To col.Count
+        arr(i - 1) = col(i)
+    Next i
+
+    CollectionToArray = arr
+End Function
+
+
+Private Function IsValidMapFile(ByVal Filename As String) As Boolean
+
+    If Len(Filename) < 6 Then Exit Function
+    If InStr(1, Filename, Schedule, vbTextCompare) = 0 Then Exit Function
+    If InStr(1, Filename, ".x", vbTextCompare) > 0 Then Exit Function
+    If InStr(1, Filename, "AEI", vbTextCompare) > 0 Then Exit Function
+    If InStr(1, Filename, "6688", vbTextCompare) > 0 Then Exit Function
+    If InStr(1, Filename, "OUT", vbTextCompare) > 0 Then Exit Function
+
+    IsValidMapFile = True
+
 End Function
 
 
 
-Private Sub txtInkoutSchedules_Change()
 
-    '----------------------
-    ' TextBox Input Filter
-    '----------------------
-    txtInkoutSchedules.Value = UCase(txtInkoutSchedules.Value)
-    
-    If Right(txtInkoutSchedules.Value, 1) = vbLf Then
-        txtInkoutSchedules.Value = Left(txtInkoutSchedules.Value, Len(txtInkoutSchedules.Value) - 2)
-        Exit Sub
-    End If
-    
-    If Len(txtInkoutSchedules.Value) < 10 Then Exit Sub
-    Schedule = txtInkoutSchedules.Value
-    
-    '---------------------------------
-    ' 1.) Retrieve program properties
-    '---------------------------------
-    PROPERTIES_MaxScheduleCount = ThisWorkbook.Sheets(1).Range("C5").Value2
-    PROPERTIES_MaxStepCount = ThisWorkbook.Sheets(1).Range("C6").Value2
-    'IN/6440/AEI/6730/6630/6733/6688/6905
-    
-    
-    '-----------------------------
-    ' 2. Reset/clear all controls
-    '-----------------------------
-    For i = 1 To PROPERTIES_MaxScheduleCount
-        For j = 1 To PROPERTIES_MaxStepCount
-            Me.Controls("checkStep_" & Format(i, "00") & "_" & Format(j, "00")).BackColor = RGB(240, 240, 240)
-            Me.Controls("checkStep_" & Format(i, "00") & "_" & Format(j, "00")).Caption = ""
-        Next
-    Next
-    
-    LastCell = Replace(ThisWorkbook.Sheets(2).Cells(1 + PROPERTIES_MaxScheduleCount, 1 + PROPERTIES_MaxStepCount).Address, "$", "")
-    
-    ThisWorkbook.Sheets(2).Range("B2:" & LastCell).Value = ""
-    
-    '---------------
-    '
-    '---------------
-    Dim ScheduleList As Variant, ScheduleCount As Integer, WorkWeek As String
-    ScheduleList = Split(txtInkoutSchedules.Value, vbNewLine)
-    ScheduleCount = UBound(ScheduleList) + 1
-    WorkWeek = Right(Year(Now), 2)
-    
-    InkoutMapDirectory = Me.txtInkoutMapDirectory.Value
-    
-    Dim StepList() As Integer, StepCount As Integer
-    ReDim StepList(1 To PROPERTIES_MaxStepCount)
-    StepCount = 1
-    
-    
-    Dim Active() As Variant
-    ReDim Active(1 To ScheduleCount, 1 To PROPERTIES_MaxStepCount)
 
-    Dim StepListString As String
-    StepList(1) = 6730
-    StepListString = StepListString & "[6730]"
-    
-    
-    
-    '-----------------------------------------------
-    ' Get all the available steps for each schedule
-    '-----------------------------------------------
-    
-    '(1) Get Directories
-    InkoutMapWorkWeek = Right(Year(Now), 2)
-    InkoutMapScheduleDigits = Left(Schedule, 2)
-    InkoutMapDirectory = Me.txtInkoutMapDirectory & "\W" & InkoutMapWorkWeek & InkoutMapScheduleDigits
-    
-    For i = 1 To ScheduleCount
-        For j = 1 To PROPERTIES_MaxStepCount
-            Active(i, j) = "N/A"
-        Next
-    Next
-    
-    
-    For i = 0 To UBound(ScheduleList)
-        
-        StepFolder = Dir(InkoutMapDirectory & "\" & ScheduleList(i) & "\", vbDirectory)
-        
-        Me.Controls("LabelBackground_" & Format(i + 1, "00")).Visible = True
-        Do While StepFolder <> ""
-            StepFolder = Dir
-            
-            '----------------------
-            ' Step Folder Criteria
-            '----------------------
-            IsStepFolder = UCase(StepFolder) <> "ORG"
-            IsStepFolder = StepFolder = "AEI"
-            IsStepFolder = IsStep Or Len(StepFolder) = 4
-            
-            If IsStepFolder Then
-            
-                NotIncluded = InStr(1, StepListString, StepFolder) = 0
-                If NotIncluded Then
-                    StepListString = StepListString & "[" & StepFolder & "]"
-                    StepCount = StepCount + 1
-                    StepList(StepCount) = StepFolder
-                End If
-                
-                For j = 1 To StepCount
-                    
-                    Me.Controls("checkStep_" & Format(i + 1, "00") & "_" & Format(j, "00")).Caption = StepList(j)
-                          
-                    If StepList(j) = StepFolder Then
-                 
-                        Active(i + 1, j) = False
-                
-                        Me.Controls("checkStep_" & Format(i + 1, "00") & "_" & Format(j, "00")).BackColor = RGB(220, 234, 247) ' Light Blue
-                        Me.Controls("checkStep_" & Format(i + 1, "00") & "_" & Format(j, "00")).ForeColor = RGB(0, 0, 0)
-                    
-                    End If
-                    
-                Next
-                
-                Files = Files & "\" & StepFolder
-            End If
-        Loop
-    Next
-    LastCell = Replace(ThisWorkbook.Sheets(2).Cells(1 + ScheduleCount, 1 + StepCount).Address, "$", "")
-    ThisWorkbook.Sheets(2).Range("B2:" & LastCell).Value = Active
-    
-    For i = 1 To ScheduleCount
-        For j = 1 To StepCount
-            
-            Me.Controls("checkStep_" & Format(i, "00") & "_" & Format(j, "00")).BackColor = RGB(240, 240, 240)
-            Me.Controls("checkStep_" & Format(i, "00") & "_" & Format(j, "00")).ForeColor = RGB(126, 126, 126)
-            Me.Controls("checkStep_" & Format(i, "00") & "_" & Format(j, "00")).Visible = True
-            
-                        
-            If Active(i, j) <> "N/A" Then
-                Me.Controls("checkStep_" & Format(i, "00") & "_" & Format(j, "00")).BackColor = RGB(220, 234, 247) ' Light Blue
-                Me.Controls("checkStep_" & Format(i, "00") & "_" & Format(j, "00")).ForeColor = RGB(0, 0, 0)
-            
-            End If
-            
-        Next
-    Next
-    
-    
-    
-    
-    
-    '----------------------------------------------
-    ' Update each control to reflect each schedule
-    '----------------------------------------------
-    Dim Schedules() As String, Steps() As Variant
-    ReDim Schedules(0 To UBound(ScheduleList) + 1, 1)
-    ReDim Steps(0, StepCount)
-    For i = 1 To UBound(ScheduleList) + 1
-        Me.Controls("labelSchedule_" & Format(i, "00")).Caption = ScheduleList(i - 1)
-        Schedules(i - 1, 0) = ScheduleList(i - 1)
-        
-        For j = 1 To StepCount
-    
-            Me.Controls("checkStep_" & Format(i, "00") & "_" & Format(j, "00")).Caption = StepList(j)
-            Steps(0, j - 1) = StepList(j)
-        Next
-    
-    Next
-    
-    ThisWorkbook.Sheets(2).Range("A2:A" & 1 + ScheduleCount).Value = Schedules
-    ThisWorkbook.Sheets(2).Range("B1:" & Replace(Cells(1, 1 + StepCount).Address, "$", "")).Value = Steps
-    
-    
-    
-    
-    
-    
-    StepListString = Right(StepListString, Len(StepListString) - 1)
-    
-    
-    Exit Sub
-    
-End Sub
 
 Private Function CheckSteps(Schedule As String) As Variant
     
