@@ -1,0 +1,112 @@
+Public Sub MergeMapSub()
+
+
+'-------------------------
+    ' Merge Map
+    '-------------------------
+    
+    Dim i As Long
+    Dim InkCode As String
+    Dim PanelCode As String
+
+    PanelMapIndex = InStr(1, PanelMapFileContent, "ROWDATA:")
+    InkoutMapIndex = InStr(1, InkoutMapFileContent, "ROWDATA:")
+
+    IndexOffset = PanelMapIndex - InkoutMapIndex
+
+    i = InkoutMapIndex
+
+    Do While i > 0
+        i = InStr(i, InkoutMapFileContent, "030")
+        If i = 0 Then Exit Do
+
+        PanelCode = mid$(PanelMapFileContent, i + IndexOffset, 3)
+
+        If PanelCode = "000" Then
+            Mid$(PanelMapFileContent, i + IndexOffset, 3) = "030"
+        ElseIf PanelCode = "___" Then
+            MergeMapSub = False
+        End If
+
+        i = i + 3
+    Loop
+    MergeMap = PanelMapFileContent
+End Sub
+
+Public Function AnalyzeMapText( _
+        ByVal WaferMap As String, _
+        ByVal CommonDefects As Object) As MapStats
+
+    Dim lines() As String
+    Dim tokens() As String
+    Dim line As String
+    Dim token As String
+    Dim i As Long, j As Long
+    Dim stats As MapStats
+
+    '---------------------------
+    ' 1. Split WaferMap by line
+    '---------------------------
+    lines = Split(WaferMap, vbCrLf)
+
+    '---------------------------
+    ' 2. Loop through each line
+    '---------------------------
+    For i = LBound(lines) To UBound(lines)
+        
+        line = lines(i)
+
+        '-------------------------------------------------------------
+        ' 2.1 Starts reading the line only if it begins with RowData:
+        '-------------------------------------------------------------
+        If UCase(Left$(line, 8)) = "ROWDATA:" Then
+            
+            '------------------------------------------
+            ' 2.2 Analyze the line only after RowData:
+            '------------------------------------------
+            line = mid$(line, 9)
+            
+            '-------------------------------------------------------------------
+            ' 2.3 Counts the number of whitespaces by removing all white spaces
+            '     and counting the length of line
+            '-------------------------------------------------------------------
+            stats.SpaceCount = stats.SpaceCount + _
+                (Len(line) - Len(Replace$(line, " ", "")))
+            
+            '----------------------------------------
+            ' 2.4 Delimits the tokens by whitespaces
+            '----------------------------------------
+            tokens = Split(line, " ")
+            For j = LBound(tokens) To UBound(tokens)
+                token = tokens(j)
+                
+                Select Case True
+                    Case token = "___"
+                        stats.UnderscoreCount = stats.UnderscoreCount + 1
+                    
+                    '--------------------------
+                    ' Numeric die
+                    ' Lexicographically better
+                    '--------------------------------
+                    Case Len(token) = 3 And token >= "000" And token <= "999"
+                        stats.DPW = stats.DPW + 1
+                        
+                        If Not CommonDefects.Exists(token) Then
+                            stats.UncommonCount = stats.UncommonCount + 1
+                            stats.HasUncommonDefect = True
+                        End If
+                    
+                    ' Any other token (e.g. F15)
+                    Case Else
+                        stats.UncommonCount = stats.UncommonCount + 1
+                        stats.HasUncommonDefect = True
+                End Select
+                
+            Next j
+        End If
+    Next i
+
+    AnalyzeMapText = stats
+End Function
+
+
