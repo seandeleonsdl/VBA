@@ -335,19 +335,20 @@ Private Function MergeRowDataLine(PanelLine As String, InkoutLine As String) As 
     ' 4. Returns the formatted line
     '-------------------------------
     MergeRowDataLine = "RowData:" & pData
+    
 End Function
 
 Public Function MergeMap(ByVal PanelMapFilename As String, InkoutMapFilename As String) As String
     
-    filePath = Filename
+    
+    
+    
+    
+    '------------------------
+    ' 1. Get PanelMapContent
+    '------------------------
     fileNum = FreeFile
-    
-    
-    '-----------------------
-    ' Get Panel Map Content
-    '-----------------------
     Open PanelMapFilename For Input As #fileNum
-    
     Do Until EOF(fileNum)
         Line Input #fileNum, LineInstance
         PanelMapFileContent = PanelMapFileContent & vbNewLine & LineInstance
@@ -355,77 +356,193 @@ Public Function MergeMap(ByVal PanelMapFilename As String, InkoutMapFilename As 
     Close #fileNum
     PanelMapFileContent = Right(PanelMapFileContent, Len(PanelMapFileContent) - 2)
     
-    '------------------------
-    ' Get Inkout Map Content
-    '------------------------
-    
+    '-------------------------
+    ' 2. Get InkoutMapContent
+    '-------------------------
     Open InkoutMapFilename For Input As #fileNum
-    
     Do Until EOF(fileNum)
         Line Input #fileNum, LineInstance
         InkoutMapFileContent = InkoutMapFileContent & vbNewLine & LineInstance
     Loop
     Close #fileNum
     InkoutMapFileContent = Right(InkoutMapFileContent, Len(InkoutMapFileContent) - 2)
-    'MsgBox "InkoutMapFileContent Filename: " & InkoutMapFilename
     
-    '-------------------------
-    ' Merge Map
-    '-------------------------
-    '-------------------------
-    ' Merge Map
-    '-------------------------
+    'Dim PanelMapIndex As Long, InkoutMapIndex As Long
+    'Dim IndexOffset As Long
+    'Dim i As Long
+    'Dim PanelCode As String, InkCode As String
+
+    'PanelMapIndex = InStr(1, PanelMapFileContent, "ROWDATA:", vbTextCompare)
+    'InkoutMapIndex = InStr(1, InkoutMapFileContent, "ROWDATA:", vbTextCompare)
     
+    'PanelMapFileContent_A20 = Mid$(PanelMapFileContent, PanelMapIndex)
+    'InkoutMapFileContent_A20 = Mid$(InkoutMapFileContent, InkoutMapIndex)
     
-    
-    Dim PanelLines() As String
-    Dim InkoutLines() As String
-    Dim ResultLines() As String
-    Dim r As Long
-    
-    Dim PanelMapIndex As Long, InkoutMapIndex As Long
-    Dim IndexOffset As Long
-    Dim i As Long
-    Dim PanelCode As String, InkCode As String
-    
-    ' Find ROWDATA: positions
-    PanelMapIndex = InStr(1, PanelMapFileContent, "ROWDATA:", vbTextCompare)
-    InkoutMapIndex = InStr(1, InkoutMapFileContent, "ROWDATA:", vbTextCompare)
-    
-    PanelMapFileContent_A20 = Mid$(PanelMapFileContent, PanelMapIndex)
-    InkoutMapFileContent_A20 = Mid$(InkoutMapFileContent, InkoutMapIndex)
-    
-    PanelLines = Split(PanelMapFileContent_A20, vbCrLf)
-    InkoutLines = Split(InkoutMapFileContent_A20, vbCrLf)
-    
-    ReDim ResultLines(LBound(PanelLines) To UBound(PanelLines))
+    '-------------------------------------------------------------------
+    ' 3. Delimit PanelMapFileContent and InkoutMapFileContent by vbCrLf
+    '-------------------------------------------------------------------
+    Dim PanelLines() As String, InkoutLines() As String
+    PanelLines = Split(PanelMapFileContent, vbCrLf)
+    InkoutLines = Split(InkoutMapFileContent, vbCrLf)
     
     
-    
-    '---------------------------------------------
-    '
-    '------------------------
+    '-------------------------------------------------------------------
+    ' 4. ERROR CASE 1: Check if the number of vbCrLf lines is different
+    '-------------------------------------------------------------------
     If UBound(PanelLines) <> UBound(InkoutLines) Then
         MsgBox "Merge map fail. Please confirm map format.", vbCritical
         MergeMap = ""
         Exit Function
     End If
     
-    
+    '------------------------------------------------
+    ' 5. Loops through each PanelLines and run merge
+    '------------------------------------------------
+    Dim ResultLines() As String, r As Long
+    ReDim ResultLines(LBound(PanelLines) To UBound(PanelLines))
     For r = LBound(PanelLines) To UBound(PanelLines)
+        ResultLines(r) = MergeRowDataLine(PanelLines(r), InkoutLines(r))
+    Next r
+       
+    MergeMap = Join(ResultLines, vbCrLf)
+    'MergeMap = Left(PanelMapFileContent, PanelMapIndex - 2) & vbCrLf & MergeMap
+
+End Function
+
+Private Sub checkbox_Click()
     
-        ' If Inkout has fewer rows, keep panel row unchanged
-        If r > UBound(InkoutLines) Then
-            ResultLines(r) = PanelLines(r)
-        Else
-            ResultLines(r) = MergeRowDataLine(PanelLines(r), InkoutLines(r))
+    
+    Color_LightGray = RGB(240, 240, 240)
+    Color_Red = RGB(255, 0, 0)
+    Color_White = RGB(255, 255, 255)
+    
+    '----------------------------------------------------
+    ' 1. Check if User clicked an actual Bumping2 Folder
+    '----------------------------------------------------
+    Index_Schedule = Int(Split(checkbox.Name, "_")(1))
+    Index_Step = Int(Split(checkbox.Name, "_")(2))
+    Bumping2_FolderCount = ThisWorkbook.Sheets("Switches").Cells(1 + Index_Schedule, Columns.count).End(xlToLeft).Column - 1
+    If Index_Step > Bumping2_FolderCount Then Exit Sub
+    
+    '-------------------------------------------------------------------------
+    ' 2. If instanceSwitch already on (True), switch off (False) and Exit Sub
+    '    *instanceSwitch is the clicked folder.
+    '-------------------------------------------------------------------------
+    Set instanceSwitch = ThisWorkbook.Sheets("Switches").Range("B2").Offset(Index_Schedule - 1, Index_Step - 1)
+    If instanceSwitch.Value = True Then
+        
+        '--------------------------------------------------------------------
+        ' 2.1 Change value and UI of selected Bumping2 Folder to off (False)
+        '--------------------------------------------------------------------
+        instanceSwitch.Value = False
+        checkbox.BackColor = Color_LightGray
+        formAutoInkout.Controls("lblRemarks_" & Format(Index_Schedule, "00")).Caption = "" 'Blank remarks
+        Exit Sub
+        
+    End If
+    
+    '-------------------------------------------------
+    ' 3. Switch off all other Steps for that Schedule
+    '-------------------------------------------------
+    For j = 1 To Bumping2_FolderCount
+        
+        ThisWorkbook.Sheets("Switches").Range("B2").Offset(Index_Schedule - 1, j - 1).Value = False
+        formAutoInkout.Controls("checkStep_" & Format(Index_Schedule, "00") & "_" & Format(j, "00")).BackColor = Color_LightGray
+  
+    Next
+    
+    '--------------------------------------------------
+    ' 4. Get information based on the checkbox clicked
+    '--------------------------------------------------
+    Schedule = ThisWorkbook.Sheets("Subfolders").Range("B2").Offset(Index_Schedule, 0).Value
+    MotherLotID = ThisWorkbook.Sheets("Subfolders").Range("C2").Offset(Index_Schedule, 0).Value
+    CumulativeCount = ThisWorkbook.Sheets("Subfolders").Range("E2").Offset(Index_Schedule, 0).Value
+    InkoutMapDirectory = ThisWorkbook.Sheets("Subfolders").Range("G3").Offset(CumulativeCount + Index_Step - 1, 0).Value
+    InkoutMapList = Module1.GetMapList(Schedule, InkoutMapDirectory)
+    
+    '------------------------------------
+    ' 4.1 ERROR CASE 1: No Mother Lot ID
+    '------------------------------------
+    If MotherLotID = "" Then
+        checkbox.BackColor = Color_Red
+        
+        With formAutoInkout.Controls("lblRemarks_" & Format(Index_Schedule, "00"))
+            .Caption = "No Mother Lot ID found; please manual ink-out."
+            .BackColor = Color_Red
+            .ForeColor = Color_White
+        End With
+        
+        Exit Sub
+    End If
+    
+    
+    Dim Remarks(1 To 13) As String
+    Dim ImpactWaferCount As Integer
+    For Each Map In InkoutMapList
+        
+        filePath = InkoutMapDirectory & "\" & Map
+        
+        'InkoutMapWaferID = Module1.GetWaferID(filePath)
+        InkoutMapWaferID = Module1.GetWaferID(Map)
+        DefectCount = Module1.CountF30(filePath)
+        
+        If DefectCount > 0 Then
+            ImpactWaferCount = ImpactWaferCount + 1
+            
+            '-----------------------------------------------------------
+            ' 4.2 ERROR CASE 2: Single wafer with multiple ink-out maps
+            '-----------------------------------------------------------
+            If Remarks(InkoutMapWaferID) <> "" Then
+                formAutoInkout.Controls("lblRemarks_" & Format(Index_Schedule, "00")).Caption = "2 maps for 1 wafer detected; please confirm."
+                Exit Sub
+            End If
+            Remarks(InkoutMapWaferID) = "S" & InkoutMapWaferID & "-" & DefectCount & "ea"
+            path(InkoutMapWaferID) = filePath
+            
+        End If
+    Next
+    
+    '-------------------------
+    ' CASE 3: No F30 detected
+    '-------------------------
+    If ImpactWaferCount = 0 Then
+        RemarksString = "No F30 detected"
+        formAutoInkout.Controls("lblRemarks_" & Format(Index_Schedule, "00")).Caption = RemarksString
+        Exit Sub
+    End If
+    
+    
+    Dim ImpactRemarks() As String, ImpactPath() As String
+    ReDim ImpactRemarks(0 To ImpactWaferCount - 1)
+    Dim count As Integer
+    count = 0
+    Dim Dictionary() As Variant
+    ReDim Dictionary(1 To ImpactWaferCount)
+    
+    InitializeDictionaries (ImpactWaferCount)
+    
+    For i = 1 To 13
+        Remark = Remarks(i)
+        If Remark <> "" Then
+            
+            ImpactRemarks(count) = Remark
+            count = count + 1
+            'Set Dictionary(count) = Module1.CountDefectCodes(path(i))
+            
         End If
     
-    Next r
+    Next
     
-        
-    MergeMap = Join(ResultLines, vbCrLf)
-    MergeMap = Left(PanelMapFileContent, PanelMapIndex - 2) & vbCrLf & MergeMap
+    RemarksString = Join(ImpactRemarks, ",")
+    UI_ActivateCheckBox checkbox
+    instanceSwitch.Value = True
+    Schedule = ThisWorkbook.Sheets(2).Range("A2").Offset(Index_Schedule - 1, 0).Value
+    formAutoInkout.Controls("lblRemarks_" & Format(Index_Schedule, "00")).Caption = RemarksString
+    
+    '-----------------
+    ' Ongoing testing
+    '-----------------
+    'formChangeCode.loaddict Dictionary
+    'formChangeCode.Show
 
-        
-End Function
+End Sub
