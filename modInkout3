@@ -1,0 +1,302 @@
+' TO DO LIST:
+' 1. Checking of what index it should be in checkstep
+
+Public Function Inkout(ByVal Schedule As String, ByVal MotherLotID As String, ByVal Directory As String)
+
+    Dim fso As Object
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    
+    '------------------------------------------------------------------
+    ' 1. Set directories; timestamps are placed to prevent overwriting
+    '------------------------------------------------------------------
+    Timestamp = Format(Now, "yyyymmdd_hhnnss")
+    PanelMapDirectory = ThisWorkbook.Sheets("Settings").Range("B2").Value
+    MergeMapDirectory = ThisWorkbook.path & "\" & Schedule & " " & Timestamp
+    BulkMapDirectory = ThisWorkbook.path & "\Merge Maps " & Timestamp
+                        
+    '----------------------------------------------------
+    ' 2. Create Inkout Folders in MergeMapDirectory
+    '    Need to revise to create the folder in Bumping2
+    '----------------------------------------------------
+    'If Dir(MergeMapDirectory, vbDirectory) = "" Then MkDir MergeMapDirectory
+    'If Dir(MergeMapDirectory & "\Inkout Map", vbDirectory) = "" Then MkDir (MergeMapDirectory & "\Inkout Map")
+    'If Dir(MergeMapDirectory & "\Panel Map", vbDirectory) = "" Then MkDir (MergeMapDirectory & "\Panel Map")
+    'If Dir(MergeMapDirectory & "\Merge Map", vbDirectory) = "" Then MkDir (MergeMapDirectory & "\Merge Map")
+    'If Dir(BulkMapDirectory, vbDirectory) = "" Then MkDir (BulkMapDirectory)
+    MkDir MergeMapDirectory
+    MkDir MergeMapDirectory & "\Inkout Map"
+    MkDir MergeMapDirectory & "\Panel Map"
+    MkDir MergeMapDirectory & "\Merge Map"
+    MkDir BulkMapDirectory
+    
+    '--------------------------------------------------
+    ' 2.1 Create Bumping2 directory of Bumping2_Enabled
+    '--------------------------------------------------
+    Bumping2_Enabled = False
+    If Bumping2_Enabled Then
+        AutoInkoutDirectory = Directory & "\Auto Ink-out " & Timestamp
+        MkDir (AutoInkoutDirectory)
+        MkDir (AutoInkoutDirectory & "\Onyx Original")
+        MkDir (AutoInkoutDirectory & "\Merge Map")
+    End If
+    
+    '--------------------------------------------
+    ' 3. Get Map List from Bumping2 and PanelMap
+    '--------------------------------------------
+    Dim InkoutMapList(1 To 13) As Variant
+    
+    MapList = GetMapList(Schedule, Directory)
+    For Each Map In MapList
+        
+        filePath = Directory & "\" & Map
+    
+        
+        DefectCount = Module1.CountF30(filePath)
+        
+        If DefectCount > 0 Then
+        
+            ImpactWaferCount = ImpactWaferCount + 1
+            InkoutMapList(ImpactWaferCount) = Map
+            
+        End If
+    Next
+    
+    PanelMapList = GetMapList(Schedule, PanelMapDirectory & "\" & Schedule & "*")
+    
+    '-------------------------------------
+    ' 4. Loop through each impacted wafer
+    '-------------------------------------
+    For i = 1 To ImpactWaferCount
+    
+        '---------------------------------------------
+        ' 4.1 Copy InkoutMap to the MergeMapDirectory
+        '---------------------------------------------
+        InkoutMap = InkoutMapList(i)
+        FileToCopy = Directory & "\" & InkoutMap
+        SaveFileAs = MergeMapDirectory & "\Inkout Map\" & InkoutMap
+        fso.CopyFile FileToCopy, SaveFileAs
+        
+        '-----------------------------------------------------
+        ' 5. Convert InkoutMap defects codes and overwrite it
+        '-----------------------------------------------------
+        ConvertDefectCode SaveFileAs
+                
+        '-------------------------------
+        ' 6. Loop through each PanelMap
+        '-------------------------------
+        For Each PanelMap In PanelMapList
+        
+            InkoutMapID = GetWaferID(InkoutMap)
+            PanelMapID = GetWaferID(PanelMap)
+            
+            '--------------------------------------------------
+            ' 6.1 Look for matching InkoutMapID and PanelMapID
+            '--------------------------------------------------
+            If InkoutMapID = PanelMapID Then
+                
+                '-------------------------------------
+                ' 6.2 Back-up the original PanelMapID
+                '-------------------------------------
+                FileToCopy = PanelMapDirectory & "\" & PanelMap
+                SaveFileAs = MergeMapDirectory & "\Panel Map\" & PanelMap
+                fso.CopyFile FileToCopy, SaveFileAs
+                
+                '-----------------------------------------------
+                ' 6.2.1 Back-up to Bumping2 if Bumping2_Enabled
+                '-----------------------------------------------
+                If Bumping2_Enabled Then
+                    SaveFileAs = AutoInkoutDirectory & "\Onyx Original\" & PanelMap
+                    fso.CopyFile FileToCopy, SaveFileAs
+                End If
+                
+                '----------------------------------------------------------------
+                ' 6.3 Merge PanelMap and InkoutMap and create the MergeMapString
+                '----------------------------------------------------------------
+                MergeMapString = MergeMap(PanelMapDirectory & "\" & PanelMap, MergeMapDirectory & "\Inkout Map\" & InkoutMap)
+                
+                '------------------------------------------
+                ' 6.4 Create MergeMap named after PanelMap
+                '------------------------------------------
+                filePath = ThisWorkbook.path & "\" & Schedule & "\Merge Map\" & PanelMap
+                fileNum = FreeFile
+                Open filePath For Output As #fileNum
+                Print #fileNum, MergeMapString
+                Close #fileNum
+                
+                '--------------------------------------------------------------------
+                ' 6.5 Copy to BulkMapDirectory; Copy to Bumping2 if Bumping2_Enabled
+                '--------------------------------------------------------------------
+                fso.CopyFile filePath, BulkMapDirectory & "\" & PanelMap
+                If Bumping2_Enabled Then fso.CopyFile filePath, AutoInkoutDirectory & "\Merge Map\" & PanelMap
+                Exit For
+                
+            End If
+        Next
+            
+    Next
+    
+    Inkout = MergeMapDirectory & "\Merge Map\"
+
+End Function
+
+
+
+Private Sub btnInkout_Click()
+    
+    '------------------------------------------------------
+    ' 1. Loop through each schedule to check if NeedInkout
+    '------------------------------------------------------
+    Dim ScheduleCount As Integer
+    ScheduleCount = ThisWorkbook.Sheets("Switches").Range("A" & Rows.count).End(xlUp).Row - 1
+    
+    Dim NeedInkoutInformation(1 To 10, 4) As Variant, NeedInkoutCount As Integer, NeedInkout As Boolean
+    NeedInkoutCount = 0
+    
+    '------------------------------------------
+    ' 1.1 Prepare Ink-out Confirmation message
+    '------------------------------------------
+    Dim InkoutConfirmationMessage As String
+    InkoutConfirmationMessage = "Inkout the following lots?" & vbNewLine
+    
+    For i = 1 To ScheduleCount
+        
+        Schedule_LotID = ThisWorkbook.Sheets("Subfolders").Range("B3").Offset(i - 1, 0).Value2
+        Schedule_MotherLotID = ThisWorkbook.Sheets("Subfolders").Range("C3").Offset(i - 1, 0).Value2
+        Schedule_InkoutFolderCount = ThisWorkbook.Sheets("Switches").Cells(1 + i, Columns.count).End(xlToLeft).Column - 1
+        
+        '---------------------------------------------------------------------
+        ' 2. Loop through each InkoutFolder to check if NeedInkout;
+        '    If found step NeedInkout, exit j loop (1 inkout folder/schedule)
+        '---------------------------------------------------------------------
+        For j = 1 To Schedule_InkoutFolderCount
+            
+            NeedInkout = ThisWorkbook.Sheets("Switches").Range("B2").Offset(i - 1, j - 1).Value
+                
+            If NeedInkout Then
+            
+                CumulativeCount = ThisWorkbook.Sheets("Subfolders").Range("E3").Offset(i - 1, 0).Value
+                Schedule_InkoutFolder = ThisWorkbook.Sheets("Subfolders").Range("F3").Offset(CumulativeCount + j - 1, 0).Value
+                Schedule_InkoutFolderPath = ThisWorkbook.Sheets("Subfolders").Range("G3").Offset(CumulativeCount + j - 1, 0).Value
+                       
+                NeedInkoutCount = NeedInkoutCount + 1
+                NeedInkoutInformation(NeedInkoutCount, 0) = Schedule_LotID
+                NeedInkoutInformation(NeedInkoutCount, 2) = Schedule_MotherLotID
+                NeedInkoutInformation(NeedInkoutCount, 1) = Schedule_InkoutFolder
+                NeedInkoutInformation(NeedInkoutCount, 3) = Schedule_InkoutFolderPath
+                InkoutConfirmationString = InkoutConfirmationString & "  " & Schedule_LotID & vbTab & Schedule_InkoutFolder & vbNewLine
+                Exit For
+
+            End If
+        Next
+    Next
+    
+    '------------------------------------------------------------------
+    ' 3. Prompt user InkoutConfirmationMessage to proceed, then Inkout
+    '------------------------------------------------------------------
+    If MsgBox(InkoutConfirmationMessage, vbOKCancel) = vbCancel Then Exit Sub
+    For i = 1 To NeedInkoutCount
+        NeedInkoutInformation(i, 4) = Module1.Inkout(NeedInkoutInformation(i, 0), NeedInkoutInformation(i, 2), NeedInkoutInformation(i, 3))
+    Next
+        
+    '------------------------------------------------
+    ' 4. Double-prompt user if need to merge to Onyx
+    '------------------------------------------------
+    If MsgBox("Inkout done. Save to Onyx Panel Map?", vbOKCancel) = vbCancel Then
+        MsgBox "Merge to Onyx cancelled. Exiting"
+        Exit Sub
+    End If
+    
+    If MsgBox("Please confirm all ink-out maps before uploading to Onyx", vbOKCancel) = vbCancel Then
+        MsgBox "Merge to Onyx cancelled. Exiting"
+        Exit Sub
+    End If
+    
+    '-------------------------------
+    ' 5. Merge Ink-out Maps to Onyx
+    '-------------------------------
+    Dim fso As Object
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    
+    For i = 1 To NeedInkoutCount
+        
+        '----------------------------------------------------
+        ' 5.1 Loops through InkoutMap in InkoutMap_Directory
+        '----------------------------------------------------
+        InkoutMap_Directory = NeedInkoutInformation(i, 4)
+        InkoutMap_Filename = Dir(InkoutMap_Directory)
+        InkoutMap_FullFilename = InkoutMap_Directory & InkoutMap_Filename
+        
+        Do While InkoutMap_Filename <> ""
+    
+            '--------------------------------------------
+            ' 5.2 Checks if InkoutMap_Filename is a file
+            '--------------------------------------------
+            If (GetAttr(InkoutMap_FullFilename) And vbDirectory) = 0 Then
+            
+                fso.CopyFile InkoutMap_FullFilename, "\\10.16.112.76\Onyx\PanelMap\" & InkoutMap_Filename
+                
+            End If
+            InkoutMap_Filename = Dir
+        Loop
+    Next
+    
+    MsgBox "Merge to Onyx successful."
+
+End Sub
+
+
+
+Private Function MergeRowDataLine(PanelLine As String, InkoutLine As String) As String
+    
+    Dim pIdx As Long, iIdx As Long
+    Dim pData As String, iData As String
+    Dim i As Long
+    Dim pCode As String, iCode As String
+
+    '-------------------------------------------------------
+    ' 1. Check if PanelLine/InkoutLine has "RowData:"
+    '    If not, return PanelLine. This is useful for
+    '    PanelMap headers.
+    '-------------------------------------------------------
+    pIdx = InStr(1, PanelLine, "RowData:", vbTextCompare)
+    iIdx = InStr(1, InkoutLine, "RowData:", vbTextCompare)
+    If pIdx = 0 Or iIdx = 0 Then
+        MergeRowDataLine = PanelLine
+        Exit Function
+    End If
+   
+    '----------------------------------
+    ' 2. Get the string after RowData:
+    '----------------------------------
+    pData = Mid$(PanelLine, pIdx + 8)
+    iData = Mid$(InkoutLine, iIdx + 8)
+    
+    '---------------------------------------------------
+    ' 2.1 ERROR CASE 1: If string length after RowData:
+    '     does not match, return error
+    '---------------------------------------------------
+    If Len(pData) <> Len(iData) Then
+        MsgBox "Abnormal inkout map, please confirm"
+        MergeRowDataLine = ""
+        Exit Function
+    End If
+    
+    '---------------------------
+    '
+    For i = 1 To Len(pData) Step 4
+        pCode = Mid$(pData, i, 3)
+        MsgBox pCode
+        If i + 2 <= Len(iData) Then
+            iCode = Mid$(iData, i, 3)
+        Else
+            iCode = ""
+        End If
+
+        ' Only fill when panel is 000
+        If pCode = "000" And iCode <> "" Then
+            Mid$(pData, i, 3) = iCode
+        End If
+    Next i
+
+    MergeRowDataLine = Left$(PanelLine, pIdx + 7) & pData
+End Function
