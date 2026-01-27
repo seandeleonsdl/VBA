@@ -281,18 +281,37 @@ Private Function MergeRowDataLine(PanelLine As String, InkoutLine As String) As 
         Exit Function
     End If
     
-    '---------------------------
-    '
+    '------------------------------------------
+    ' 3. Merge PanelMapCode with InkoutMapCode
+    '------------------------------------------
     For i = 1 To Len(pData) Step 4
         pCode = Mid$(pData, i, 3)
         iCode = Mid$(iData, i, 3)
         
+        '------------------------------------------------------
+        ' 3.1 ERROR CASE 2: If indexing is wrong or a stray
+        '     whitepsace is included in the code, return error
+        '------------------------------------------------------
         If InStr(1, pCode, " ") > 0 Or InStr(1, iCode, " ") > 0 Then
             MsgBox "Stray whitespace defected/indexing is wrong"
             MergeRowDataLine = ""
             Exit Function
         End If
     
+        '--------------------------------------------------------
+        ' 3.2 ERROR CASE 3: If PanelMapCode/InkoutMapCode has an
+        '     invalid format
+        '--------------------------------------------------------
+        If iCode <> "___" And Not IsNumeric(iCode) Then
+            MsgBox "Ink-out map has an invalid defect code. Please confirm map."
+        ElseIf pCode <> "___" And Not IsNumeric(pCode) Then
+            MsgBox "Panel map has an invalid defect code. Please confirm map."
+        End If
+        
+        '-------------------------------------------------------
+        ' 3.3 ERROR CASE 4: If attempting to merge a blank with
+        '     a real die
+        '-------------------------------------------------------
         If pCode = "___" And IsNumeric(iCode) Then
             MsgBox "Attempting to merge ink-out die to Panel Map blank. Please confirm map."
             MergeRowDataLine = ""
@@ -303,10 +322,110 @@ Private Function MergeRowDataLine(PanelLine As String, InkoutLine As String) As 
             Exit Function
         End If
         
+        '----------------------------------------------------------------------
+        ' 3.4 If not ERROR CASE encountered, replace PanelMapData at the index
+        '     with the InkoutCode
+        '----------------------------------------------------------------------
         If pCode = "000" Then
             Mid$(pData, i, 3) = iCode
         End If
     Next i
 
+    '-------------------------------
+    ' 4. Returns the formatted line
+    '-------------------------------
     MergeRowDataLine = "RowData:" & pData
+End Function
+
+Public Function MergeMap(ByVal PanelMapFilename As String, InkoutMapFilename As String) As String
+    
+    filePath = Filename
+    fileNum = FreeFile
+    
+    
+    '-----------------------
+    ' Get Panel Map Content
+    '-----------------------
+    Open PanelMapFilename For Input As #fileNum
+    
+    Do Until EOF(fileNum)
+        Line Input #fileNum, LineInstance
+        PanelMapFileContent = PanelMapFileContent & vbNewLine & LineInstance
+    Loop
+    Close #fileNum
+    PanelMapFileContent = Right(PanelMapFileContent, Len(PanelMapFileContent) - 2)
+    
+    '------------------------
+    ' Get Inkout Map Content
+    '------------------------
+    
+    Open InkoutMapFilename For Input As #fileNum
+    
+    Do Until EOF(fileNum)
+        Line Input #fileNum, LineInstance
+        InkoutMapFileContent = InkoutMapFileContent & vbNewLine & LineInstance
+    Loop
+    Close #fileNum
+    InkoutMapFileContent = Right(InkoutMapFileContent, Len(InkoutMapFileContent) - 2)
+    'MsgBox "InkoutMapFileContent Filename: " & InkoutMapFilename
+    
+    '-------------------------
+    ' Merge Map
+    '-------------------------
+    '-------------------------
+    ' Merge Map
+    '-------------------------
+    
+    
+    
+    Dim PanelLines() As String
+    Dim InkoutLines() As String
+    Dim ResultLines() As String
+    Dim r As Long
+    
+    Dim PanelMapIndex As Long, InkoutMapIndex As Long
+    Dim IndexOffset As Long
+    Dim i As Long
+    Dim PanelCode As String, InkCode As String
+    
+    ' Find ROWDATA: positions
+    PanelMapIndex = InStr(1, PanelMapFileContent, "ROWDATA:", vbTextCompare)
+    InkoutMapIndex = InStr(1, InkoutMapFileContent, "ROWDATA:", vbTextCompare)
+    
+    PanelMapFileContent_A20 = Mid$(PanelMapFileContent, PanelMapIndex)
+    InkoutMapFileContent_A20 = Mid$(InkoutMapFileContent, InkoutMapIndex)
+    
+    PanelLines = Split(PanelMapFileContent_A20, vbCrLf)
+    InkoutLines = Split(InkoutMapFileContent_A20, vbCrLf)
+    
+    ReDim ResultLines(LBound(PanelLines) To UBound(PanelLines))
+    
+    
+    
+    '---------------------------------------------
+    '
+    '------------------------
+    If UBound(PanelLines) <> UBound(InkoutLines) Then
+        MsgBox "Merge map fail. Please confirm map format.", vbCritical
+        MergeMap = ""
+        Exit Function
+    End If
+    
+    
+    For r = LBound(PanelLines) To UBound(PanelLines)
+    
+        ' If Inkout has fewer rows, keep panel row unchanged
+        If r > UBound(InkoutLines) Then
+            ResultLines(r) = PanelLines(r)
+        Else
+            ResultLines(r) = MergeRowDataLine(PanelLines(r), InkoutLines(r))
+        End If
+    
+    Next r
+    
+        
+    MergeMap = Join(ResultLines, vbCrLf)
+    MergeMap = Left(PanelMapFileContent, PanelMapIndex - 2) & vbCrLf & MergeMap
+
+        
 End Function
