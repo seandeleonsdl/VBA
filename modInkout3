@@ -285,18 +285,28 @@ Private Function MergeRowDataLine(PanelLine As String, InkoutLine As String) As 
     '
     For i = 1 To Len(pData) Step 4
         pCode = Mid$(pData, i, 3)
-        MsgBox pCode
-        If i + 2 <= Len(iData) Then
-            iCode = Mid$(iData, i, 3)
-        Else
-            iCode = ""
+        iCode = Mid$(iData, i, 3)
+        
+        If InStr(1, pCode, " ") > 0 Or InStr(1, iCode, " ") > 0 Then
+            MsgBox "Stray whitespace defected/indexing is wrong"
+            MergeRowDataLine = ""
+            Exit Function
         End If
-
-        ' Only fill when panel is 000
-        If pCode = "000" And iCode <> "" Then
+    
+        If pCode = "___" And IsNumeric(iCode) Then
+            MsgBox "Attempting to merge ink-out die to Panel Map blank. Please confirm map."
+            MergeRowDataLine = ""
+            Exit Function
+        ElseIf IsNumeric(pCode) And iCode = "___" Then
+            MsgBox "Attempting to merge ink-out blank to Panel Map die. please confirm map."
+            MergeRowDataLine = ""
+            Exit Function
+        End If
+        
+        If pCode = "000" Then
             Mid$(pData, i, 3) = iCode
         End If
     Next i
 
-    MergeRowDataLine = Left$(PanelLine, pIdx + 7) & pData
+    MergeRowDataLine = "RowData:" & pData
 End Function
