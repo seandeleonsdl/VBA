@@ -1,0 +1,371 @@
+Public Sub funcLoadMESCurrentWIP()
+    
+    Set wbWIP = Application.Workbooks.Open("\\10.10.20.70\Bumping5\Other\Sean\MES WIP\MES_CURR WIP_(Security C).xlsx")
+    
+    '---------------------------------------
+    ' 1. Create Headers for the WIP Summary
+    '---------------------------------------
+    Dim WIP_Summary(0 To 60000, 1 To 6) As Variant
+    WIP_Summary(0, 2) = "PLANT"
+    WIP_Summary(0, 3) = "SCHEDULE"
+    WIP_Summary(0, 4) = "DEVICE"
+    WIP_Summary(0, 5) = "HOLD COMMENT"
+    
+    '----------------------------
+    ' 2. Filter out MES_CURR_WIP
+    '----------------------------
+    Dim WIP_Count As Long, WIP_InterestCount As Long
+    WIP_Count = wbWIP.Sheets(1).Range("B" & Rows.Count).End(xlUp).Row - 1
+    WIP_InterestCount = 0
+    For i = 1 To WIP_Count
+        
+        WIP_Plant = Right(wbWIP.Sheets(1).Range("B2").Offset(i - 1, 0).Value2, 2)
+        If WIP_Plant = "B1" Or WIP_Plant = "B5" Or WIP_Plant = "B6" Then
+            
+            WIP_InterestCount = WIP_InterestCount + 1
+            
+            WIP_Schedule = Right(wbWIP.Sheets(1).Range("C2").Offset(i - 1, 0).Value2, 2)
+            WIP_Device = Right(wbWIP.Sheets(1).Range("O2").Offset(i - 1, 0).Value2, 2)
+            WIP_Step = Right(wbWIP.Sheets(1).Range("G2").Offset(i - 1, 0).Value2, 2)
+            WIP_HoldComment = Right(wbWIP.Sheets(1).Range("BF2").Offset(i - 1, 0).Value2, 2)
+            
+            WIP_Summary(WIP_InterestCount, 2) = WIP_Plant
+            WIP_Summary(WIP_InterestCount, 3) = WIP_Schedule
+            WIP_Summary(WIP_InterestCount, 4) = WIP_Device
+            WIP_Summary(WIP_InterestCount, 5) = WIP_Step
+            WIP_Summary(WIP_InterestCount, 6) = WIP_HoldComment
+        End If
+    Next
+    
+    wbWIP.Close
+    
+    '--------------------------------------------
+    ' 3. Clear previous value but not formatting
+    '--------------------------------------------
+    ThisWorkbook.Sheets("WIP").UsedRange.Value = ""
+    ThisWorkbook.Sheets("WIP").Range("A1:F" & 1 + WIP_InterestCount).Value = WIP_Summary
+    
+End Sub
+
+Public Sub funcLoadBorrowMachine()
+
+    '------------------------------------------------------
+    ' 1. Loop through all files in BorrowMachine_Directory
+    '------------------------------------------------------
+    Dim BorrowMachine_Directory As String, _
+        BorrowMachine_FilesInPathCount As Integer, _
+        BorrowMachine_File As String, _
+        BorrowMachine_FilesInPath(1 To 10) As String
+
+    
+    BorrowMachine_Directory = ThisWorkbook.Sheets("Machine Address").Range("P5").Value & "\"
+
+    BorrowMachine_FilesInPathCount = 0
+    
+    BorrowMachine_File = Dir(BorrowMachine_Directory)
+    Do While BorrowMachine_File <> ""
+    
+        '------------------------
+        ' File Filter Conditions
+        '------------------------
+        FileIsExcelFile = InStr(1, BorrowMachine_File, ".xl") > 0
+        
+        If FileIsExcelFile Then
+            BorrowMachine_FilesInPathCount = BorrowMachine_FilesInPathCount + 1
+            BorrowMachine_FilesInPath(BorrowMachine_FilesInPathCount) = BorrowMachine_File
+        End If
+        Filename = Dir
+    Loop
+    
+    If BorrowMachine_FilesInPathCount = 0 Then Exit Sub
+
+    '---------------------------------------------------------
+    ' 2. Find the BorrowMachine_ClosestFile for the ShiftDate
+    '---------------------------------------------------------
+    '------------------------------
+    ' 2.1 Retrieve the actual date
+    '------------------------------
+    Dim ShiftDate As Date, ShiftDate_BorrowMachineFormat As Long
+    ShiftDate = Date - IIf(Time < TimeValue("09:00:00"), 1, 0)
+    ShiftDate_BorrowMachineFormat = CLng(Format(ShiftDate, "mmdd"))
+    
+    BorrowMachine_ClosestDate = 0
+    BorrowMachine_ClosestFile = ""
+    
+    For i = 1 To BorrowMachine_FilesInPathCount
+
+        '----------------------------
+        ' 2.2 Extract date from file
+        '----------------------------
+        BorrowMachine_File = BorrowMachine_FilesInPath(i)
+        BorrowMachine_FileDate = CLng(Right(Split(BorrowMachine_File, "_")(1), 4))
+
+        If BorrowMachine_FileDate <= ShiftDate_BorrowMachineFormat Then
+            If BorrowMachine_FileDate > BestDate Then
+                BorrowMachine_ClosestDate = BorrowMachine_FileDate
+                BorrowMachine_ClosestFile = BorrowMachine_File
+            End If
+        End If
+    Next File
+
+    If BorrowMachine_ClosestFile = 0 Then
+        MsgBox "Borrow Machine not found. Please confirm.", vbCritical
+        Exit Sub
+    End If
+        
+    '-----------------------
+    ' 3. Read BorrowMachine
+    '-----------------------
+    Dim BorrowMachine_LastEntry As Long, _
+        BorrowMachine_Entry As String, _
+        BorrowMachine_Schedule(1 To 100, 1 To 2) As String, _
+        BorrowMachine_LotCount As Integer, _
+        BorrowMachine_CustomerList(1 To 10, 1 To 4) As Variant, _
+        BorrowMachine_CustomerCount As Integer
+        
+    
+    Set wbBorrowMachine = Application.Workbooks.Open(BorrowMachine_Directory & BorrowMachine_ClosestFile)
+    BorrowMachine_LastEntry = wbBorrowMachine.Sheets("Inspection").Range("F" & Rows.Count).End(xlUp).Row
+
+    For i = 4 To BorrowMachine_LastEntry
+        
+        '--------------------------------------------------
+        ' 3.1 Check if BorrowMachine_Entry is a ScheduleID
+        '--------------------------------------------------
+        BorrowMachine_Entry = wbBorrowMachine.Sheets("Inspection").Range("F" & i).Value
+        If Len(BorrowMachine_Entry) >= 6 Then
+        
+            '------------------------------------------------------------
+            ' 3.2 Check if BorrowMachine_Entry has already been included
+            '------------------------------------------------------------
+            ScheduleNotYetIncluded = True
+            For j = 1 To BorrowMachine_LotCount
+                If BorrowMachine_Schedule(j, 1) = BorrowMachine_Entry Then
+                    ScheduleNotYetIncluded = False
+                    Exit For
+                End If
+            Next
+            
+            If ScheduleNotYetIncluded Then
+                
+                '--------------------------------------------------------------
+                ' 3.3 Check BorrowMachine_Priortiy for the BorrowMachine_Entry
+                '--------------------------------------------------------------
+                If VarType(wbBorrowMachine.Sheets("Inspection").Range("A" & i).Value) = 10 Then
+                    BorrowMachine_Priority = "PRIO N/A"
+                Else
+                    BorrowMachine_Priority = "PRIO " & wbBorrowMachine.Sheets("Inspection").Range("A" & i).Value2
+                    If wbBorrowMachine.Sheets("Inspection").Range("A" & i).Value = "" Then BorrowMachine_Priority = "NO PRIO"
+                End If
+            
+                BorrowMachine_LotCount = BorrowMachine_LotCount + 1
+                BorrowMachine_Schedule(BorrowMachine_LotCount, 1) = BorrowMachine_Entry
+                BorrowMachine_Schedule(BorrowMachine_LotCount, 2) = BorrowMachine_Priority
+                
+                '-----------------------------------------
+                ' 3.4 Check BorrowMachine_CustomerCode h
+                '------------------------------------------
+                BorrowMachine_CustomerCode = Mid(BorrowMachine_Entry, 3, 2)
+                CustomerNotYetIncluded = True
+                
+                '-----------------------------------------------------------------------------
+                ' 3.4.1 If BorrowMachine_CustomerCode is already included, count the instance
+                '-----------------------------------------------------------------------------
+                For j = 1 To BorrowMachine_CustomerCount
+                    If BorrowMachine_CustomerList(j, 1) = BorrowMachine_CustomerCode Then
+                        CustomerNotYetIncluded = False
+                        BorrowMachine_CustomerList(j, 2) = BorrowMachine_CustomerList(j, 2) + 1
+                        Exit For
+                    End If
+                Next
+                
+                '----------------------------------------------------------------------------
+                ' 3.4.2 If not, add BorrowMachine_CustomerCode to BorrowMachine_CustomerList
+                '       and count the instance
+                '----------------------------------------------------------------------------
+                If CustomerNotYetIncluded Then
+                    BorrowMachine_CustomerCount = BorrowMachine_CustomerCount + 1
+                    BorrowMachine_CustomerList(BorrowMachine_CustomerCount, 1) = BorrowMachine_CustomerCode
+                    BorrowMachine_CustomerList(BorrowMachine_CustomerCount, 2) = 1
+                End If
+                
+            End If
+        End If
+    Next
+
+    '-------------------------------------------------------------------------
+    ' 4. After including all Customers and the no. of Schedules per Customer,
+    '    compute for cumulative count per customer. This is to arrange the
+    '    Summary_Array by customer.
+    '
+    '    CUSTOMER CODE  SCHEDULE COUNT CUMMULATIVE COUNT
+    '    N4             5              0
+    '    QM             9              5
+    '    UY             3              14
+    '
+    '    The 1st QM lot will be placed in Summary_Array(5)
+    '    The 1st UY lot will be placed in Summary_Array(14)
+    '-------------------------------------------------------------------------
+    For i = 1 To BorrowMachine_CustomerCount
+        If i > 1 Then BorrowMachine_CustomerList(i, 3) = BorrowMachine_CustomerList(i - 1, 2) + BorrowMachine_CustomerList(i - 1, 3)
+    Next
+    
+    '-------------------------------------
+    ' 4. Create the BorrowMachine_Summary
+    '-------------------------------------
+    Dim BorrowMachine_Summary() As String
+    ReDim BorrowMachine_Summary(1 To BorrowMachine_LotCount, 1 To 2)
+    
+    For i = 1 To BorrowMachine_LotCount
+    
+        Summary_LotID = BorrowMachine_Schedule(i, 1)
+        Summary_CustomerCode = Mid(BorrowMachine_LotID, 3, 2)
+        Summary_Priority = BorrowMachine_Schedule(i, 2)
+        
+        For j = 1 To BorrowMachine_CustomerCount
+            If BorrowMachine_CustomerList(j, 1) = Summary_CustomerCode Then
+                
+                Summary_CumulativeCount = BorrowMachine_CustomerList(j, 3)
+                
+                BorrowMachine_CustomerList(j, 4) = BorrowMachine_CustomerList(j, 4) + 1
+                BorrowMachine_Summary(Summary_CumulativeCount + BorrowMachine_CustomerList(j, 4), 1) = Summary_LotID
+                BorrowMachine_Summary(Summary_CumulativeCount + BorrowMachine_CustomerList(j, 4), 2) = Summary_Priority
+                Exit For
+            End If
+            
+        Next
+    Next
+    
+    ThisWorkbook.Sheets("NPD").Range("A1:B" & BorrowMachine_LotCount).Value = BorrowMachine_Summary
+    
+End Sub
+
+Private Function funcCheckMask(ByVal NPD_Device As String)
+    
+    'Dim DeviceCount As Long
+    'DeviceCount = ThisWorkbook.Sheets("Masks").Range("A" & Rows.Count).End(xlUp).Row - 1
+
+    'Device_Key = Replace(UCase(Device), "-", "")
+
+    'For i = 1 To DeviceCount
+    
+    '    MaskDatabase_Device = ThisWorkbook.Sheets("Masks").Range("A2").Offset(i - 1, 0).Value
+    '    MaskDatabase_Mask = ThisWorkbook.Sheets("Masks").Range("B2").Offset(i - 1, 0).Value
+        
+    '    If Device_Key =
+    
+    '    End If
+    'Next
+
+End Function
+
+
+Private Sub funcGenerateNPDArrangement_Click()
+    
+    ThisWorkbook.Sheets("NPD").Columns("A").ClearFormats
+    
+    '------------------------------------------------------------
+    ' 1. Get the NPD_Count/WIP_Count/FinalStep_Count for looping
+    '------------------------------------------------------------
+    Dim NPD_Count As Long
+    NPD_Count = ThisWorkbook.Sheets("NPD").Range("A" & Rows.Count).End(xlUp).Row
+    NPD_Data = ThisWorkbook.Sheets("NPD").Range("A1:B" & NPD_Count).Value
+    
+    '----------------------------
+    ' 2. Generate WIP_Dictionary
+    '----------------------------
+    Dim WIP_Count As Long, _
+        WIP_Data As Variant, _
+        WIP_Dictionary As Object
+    
+    WIP_Count = ThisWorkbook.Sheets("WIP").Range("B" & Rows.Count).End(xlUp).Row
+    WIP_Data = ThisWorkbook.Sheets("WIP").Range("B1:E" & WIP_Count).Value
+    Set WIP_Dictionary = CreateObject("Scripting.Dictionary")
+    
+    For i = 1 To UBound(WIP_Data, 1)
+    
+        WIP_Schedule = CStr(WIP_Data(i, 1))
+        WIP_CustomerCode = Mid(WIP_Schedule, 3, 2)
+        WIP_Device = CStr(WIP_Data(i, 2))
+        WIP_CurrentStep = CStr(WIP_Data(i, 3))
+            
+        Set WIP_SingleEntryDictionary = CreateObject("Scripting.Dictionary")
+        WIP_SingleEntryDictionary.Add "CustomerCode", WIP_CustomerCode
+        WIP_SingleEntryDictionary.Add "Device", WIP_Device
+        WIP_SingleEntryDictionary.Add "CurrentStep", WIP_CurrentStep
+        
+        If Not WIP_Dictionary.exists(WIP_Schedule) Then
+            WIP_Dictionary.Add WIP_Schedule, WIP_SingleEntryDictionary
+        End If
+        
+    Next
+    
+    '--------------------------------
+    ' 3. Generate Routing_Dictionary
+    '--------------------------------
+    Dim Routing_StepCount As Long, _
+        Routing_Data As Variant, _
+        Routing_Dictionary As Object
+    
+    Routing_StepCount = ThisWorkbook.Sheets("Routing").Range("B" & Rows.Count).End(xlUp).Row
+    Routing_Data = ThisWorkbook.Sheets("Routing").Range("B1:E" & Routing_StepCount).Value
+    Set Routing_Dictionary = CreateObject("Scripting.Dictionary")
+    
+    For i = 1 To UBound(Routing_Data, 1)
+    
+        Routing_StepName = CStr(Routing_Data(i, 1))
+        Routing_StepsTilFinal = Routing_Data(i, 2)
+        Routing_StepRemarks = CStr(Routing_Data(i, 3))
+            
+        Set Routing_SingleEntryDictionary = CreateObject("Scripting.Dictionary")
+        Routing_SingleEntryDictionary.Add "StepsTilFinal", Routing_StepsTilFinal
+        Routing_SingleEntryDictionary.Add "Remarks", Routing_StepRemarks
+        
+        If Not Routing_Dictionary.exists(Routing_StepName) Then
+            Routing_Dictionary.Add Routing_StepName, Routing_SingleEntryDictionary
+        End If
+        
+    Next
+    
+    
+    Dim NPD_Arrangement(1 To 100, 1 To 6) As String
+    For i = 1 To NPD_Count
+    
+        '------------------------------------------
+        ' 4. Get NPD_Schedule and NPD_CustomerCode
+        '------------------------------------------
+        NPD_Schedule = ThisWorkbook.Sheets("NPD").Range("A" & i)
+        NPD_CustomerCode = Mid(NPD_Schedule, 3, 2)
+        
+        NPD_Arrangement(i, 1) = NPD_Schedule
+        NPD_Arrangement(i, 2) = NPD_CustomerCode
+        
+        '---------------------------------------------
+        ' 4.1 Get NPD_CurrentStep from WIP_Dictionary
+        '---------------------------------------------
+        NPD_CurrentStep = "Not in WIP"
+        If WIP_Dictionary.exists(NPD_Schedule) Then
+            
+            NPD_CurrentStep = WIP_Dictionary(NPD_Schedule)("CurrentStep")
+            NPD_Arrangement(i, 3) = NPD_CurrentStep
+        
+            '-----------------------------------------------
+            ' 4.2 Get NPD_StepsTilFinal and NPD_StepRemarks
+            '-----------------------------------------------
+            NPD_StepsTilFinal = Routing_Dictionary(NPD_CurrentStep)("StepsTilFinal")
+            NPD_Arrangement(i, 4) = NPD_StepsTilFinal
+            
+            NPD_StepRemarks = Routing_Dictionary(NPD_CurrentStep)("Remarks")
+            NPD_Arrangement(i, 5) = NPD_StepRemarks
+                 
+        End If
+    Next
+    
+    ThisWorkbook.Sheets("NPD").Range("G1:K" & NPD_Count).Value = NPD_Arrangement
+    
+End Sub
+
+
+
+
+
