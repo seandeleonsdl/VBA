@@ -365,7 +365,81 @@ Private Sub funcGenerateNPDArrangement_Click()
     
 End Sub
 
+Private Sub subCacheDirectory(Cache_DirectoryToCache As String, Cache_SheetName As String)
+    
+    '-----------------------------------------------
+    ' 1. Check if the worksheet exists: Add if none
+    '-----------------------------------------------
+    On Error Resume Next
+    
+    Dim wsCache As Worksheet
+    Set wsCache = ThisWorkbook.Worksheets(Cache_SheetName)
+    
+    On Error GoTo 0
+    
+    If wsCache Is Nothing Then
+        Set wsCache = ThisWorkbook.Worksheets.Add
+        wsCache.Name = sheetName
+    End If
+    
+    
+    '---------------------------------------------
+    ' 2. Obtain Cache_DirectoryToCache subfolders
+    '---------------------------------------------
+    Dim Cache_LastEntry As Long, _
+        Cache_DirectoryFolder As String
+        
+    Cache_LastEntry = ThisWorkbook.Sheets(sheetName).Range("A" & Rows.Count).End(xlUp).Offset(1, 0).Row
+    
+    If Right(Cache_DirectoryToCache, 1) <> "\" Then Cache_DirectoryToCache = Cache_DirectoryToCache & "\"
+        
+    Cache_DirectoryFolder = Dir(Cache_DirectoryToCache, vbDirectory)
+    Do While Cache_DirectoryFolder <> ""
+        If Len(Cache_DirectoryFolder) > 4 Then
+            If (GetAttr(Cache_DirectoryToCache & Cache_DirectoryFolder) And vbDirectory) = vbDirectory Then
+                
+                wsCache.Cells(Cache_LastEntry, 1).Value = UCase(Cache_DirectoryFolder)
+                wsCache.Cells(Cache_LastEntry, 2).Value = Cache_DirectoryToCache
+                Cache_LastEntry = Cache_LastEntry + 1
+                
+            End If
+        End If
+        Cache_DirectoryFolder = Dir
+    Loop
+    
+End Sub
 
+Public Function CheckMachine()
 
+    Dim Machine(1 To 4, 1 To 2) As String
+    Machine(1, 1) = "08"
+    Machine(2, 1) = "09"
+    Machine(3, 1) = "10"
+    Machine(4, 1) = "11"
+    
+    Machine(1, 2) = "\\10.20.80.219\d$\Job"
+    Machine(2, 2) = "\\10.20.80.220\d$\Job"
+    Machine(3, 2) = "\\10.20.80.221\d$\Job"
+    Machine(4, 2) = "\\10.20.80.222\d$\Job"
+    
+    
+    
+    MachineCount = 0
+    CheckMachine = "AGST_"
+    For i = 1 To 4
+        
+        subCacheDirectory Machine(i, 2), "Recipe Query"
+        
+        
+    Next
+    If MachineCount <> 0 Then
+        CheckMachine = vbNewLine & CheckMachine
+        Exit Function
+    Else
+        CheckMachine = ""
+    End If
+
+    
+End Function
 
 
