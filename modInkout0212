@@ -1,0 +1,812 @@
+'-----------------------------
+' - Change checkbox2 to subSetInkoutScheduleFolder
+' - Also included differnt functions
+' -
+'---------------------------------------------------
+
+
+'--------------------------------------------------------------
+' ERROR CASE 1: No Mother Lot ID    subSetInkoutScheduleFolder
+' ERROR CASE 2: No map in Bumping2  subSetInkoutScheduleFolder
+'
+
+'-------------------
+
+
+Public Type DieLocation
+    X As Long
+    Y As Long
+End Type
+
+
+
+
+Public Function AnalyzeMapText( _
+        ByVal WaferMap As String, _
+        ByVal CommonDefects As Object) As MapStats
+
+    Dim lines() As String
+    Dim tokens() As String
+    Dim line As String
+    Dim token As String
+    Dim i As Long, j As Long
+    Dim stats As MapStats
+    Set stats = New MapStats
+    Set stats.DefectMap = CreateObject("Scripting.Dictionary")
+    
+    
+    '---------------------------
+    ' 1. Split WaferMap by line
+    '---------------------------
+    lines = Split(WaferMap, vbCrLf)
+    minGoodCol = 5000
+    RowIndex = 0
+    For i = LBound(lines) To UBound(lines)
+    
+        line = lines(i)
+    
+        If UCase(Left$(line, 8)) = "ROWDATA:" Then
+            RowIndex = RowIndex + 1
+            tokens = Split(Mid$(line, 9), " ")
+    
+            For j = LBound(tokens) To UBound(tokens)
+                If tokens(j) = "000" Then
+                    colIndex = j
+                    If colIndex < minGoodCol Then minGoodCol = colIndex
+                    If RowIndex > maxGoodRow Then maxGoodRow = RowIndex
+                End If
+            Next j
+        End If
+    Next i
+    
+    stats.OriginCol = minGoodCol
+    stats.OriginRow = maxGoodRow
+    'MsgBox "mingood col: " & minGoodCol
+    'MsgBox "maxGoodRow col: " & maxGoodRow
+    '---------------------------
+    ' 2. Loop through each line
+    '---------------------------
+    RowIndex = 0
+    For i = LBound(lines) To UBound(lines)
+        
+        line = lines(i)
+
+        '-------------------------------------------------------------
+        ' 2.1 Starts reading the line only if it begins with RowData:
+        '-------------------------------------------------------------
+        
+
+        If UCase(Left$(line, 8)) = "ROWDATA:" Then
+            RowIndex = RowIndex + 1
+            '------------------------------------------
+            ' 2.2 Analyze the line only after RowData:
+            '------------------------------------------
+            line = Mid$(line, 9)
+            
+            '-------------------------------------------------------------------
+            ' 2.3 Counts the number of whitespaces by removing all white spaces
+            '     and counting the length of line
+            '-------------------------------------------------------------------
+            stats.SpaceCount = stats.SpaceCount + _
+                (Len(line) - Len(Replace$(line, " ", "")))
+            
+            '----------------------------------------
+            ' 2.4 Delimits the tokens by whitespaces
+            '----------------------------------------
+            tokens = Split(line, " ")
+            'MsgBox "Origin Col is " & stats.OriginCol
+            For j = LBound(tokens) To UBound(tokens)
+                colIndex = j
+                token = tokens(j)
+                
+                Select Case True
+
+                    Case token = "___"
+                        
+                        stats.UnderscoreCount = stats.UnderscoreCount + 1
+                
+                    ' Good die
+                    Case token = "000"
+                        
+                        stats.DPW = stats.DPW + 1
+                        ' origin logic already handled in first pass
+                        ' DO NOT store location
+                
+                    ' Numeric defect die
+                    Case Len(token) = 3 And token >= "000" And token <= "999"
+                        
+                        stats.DPW = stats.DPW + 1
+                        
+                        If Not CommonDefects.Exists(token) Then
+                            stats.UncommonCount = stats.UncommonCount + 1
+                            stats.HasUncommonDefect = True
+                        End If
+                
+                        ' -------- STORE DEFECT LOCATION --------
+                        
+                        If token <> "000" Then
+                            Dim loc As DieLocation
+                            'loc.X = colIndex - stats.OriginCol
+                            'MsgBox "colIndex is " & colIndex
+                            X = colIndex - stats.OriginCol
+                            'loc.Y = stats.OriginRow - RowIndex
+                            'MsgBox "RowIndex is " & RowIndex
+                            Y = stats.OriginRow - RowIndex
+                            
+                            If Not stats.DefectMap.Exists(token) Then
+                                Dim c As Object
+                                Set c = New Collection
+                                stats.DefectMap.Add token, c
+                            End If
+                            'MsgBox "(" & CStr(X) & "," & CStr(Y) & ")"
+                            stats.DefectMap(token).Add "(" & CStr(X) & "," & CStr(Y) & ")"
+                        End If
+                
+                    ' Other defect codes (e.g. F15, A07)
+                    Case Else
+                        
+                        stats.UncommonCount = stats.UncommonCount + 1
+                        stats.HasUncommonDefect = True
+                
+                        ' -------- STORE DEFECT LOCATION --------
+                        'Dim loc2 As DieLocation
+                        'loc2.X = colIndex - stats.OriginCol
+                        X = colIndex - stats.OriginCol
+                        'loc2.Y = stats.OriginRow - RowIndex
+                        Y = stats.OriginRow - RowIndex
+                        If Not stats.DefectMap.Exists(token) Then
+                            Dim c2 As Object
+                            Set c2 = New Collection
+                            'stats.DefectMap.Add token, c2
+                        End If
+                
+                        'stats.DefectMap(token).Add CStr(X) & "," & CStr(Y)
+                End Select
+                
+            Next j
+        End If
+    Next i
+    
+    Set AnalyzeMapText = stats
+    
+End Function
+
+
+Public Function CountString(ByVal mainString As String, ByVal subString As String) As Long
+    Dim position As Long
+    Dim count As Long
+    
+    count = 0
+    position = InStr(1, mainString, "RowData:", vbTextCompare)
+    position = InStr(position, mainString, subString, vbTextCompare)
+    
+    Do While position > 0
+        count = count + 1
+        position = InStr(position + 1, mainString, subString, vbTextCompare)
+    Loop
+    
+    CountString = count
+    
+    
+End Function
+
+
+Public Sub subSetUI_True(ByVal InkoutSchedule_Index As Integer, InkoutFolder_Index As Integer)
+    
+    Color_Orange = RGB(255, 147, 0)
+    
+    Dim InkoutFolder_Checkbox As Object
+    Set InkoutFolder_Checkbox = formAutoInkout.Controls("checkStep_" & Format(Index_Schedule, "00") & "_" & Format(Index_Step, "00"))
+    With InkoutFolder_Checkbox
+        .BackColor = Color_Orange
+    End With
+        
+End Sub
+
+Public Sub subSetUI_False(ByVal InkoutSchedule_Index As Integer, InkoutFolder_Index As Integer)
+    
+    Color_LightGray = RGB(240, 240, 240)
+    
+    Dim InkoutFolder_Checkbox As Object
+    Set InkoutFolder_Checkbox = formAutoInkout.Controls("checkStep_" & Format(Index_Schedule, "00") & "_" & Format(Index_Step, "00"))
+    With InkoutFolder_Checkbox
+        .BackColor = Color_LightGray
+    End With
+    
+    Dim InkoutSchedule_Remarks As Object
+    Set InkoutSchedule_Remarks = formAutoInkout.Controls("checkStep_" & Format(Index_Schedule, "00") & "_" & Format(Index_Step, "00"))
+    With InkoutSchedule_Remarks
+        .BackColor = Color_LightGray
+        .Caption = ""
+    End With
+        
+End Sub
+
+Public Sub subSetUI_Error(ByVal InkoutSchedule_Index As Integer, InkoutFolder_Index As Integer, ByVal InkoutSchedule_Remark As String)
+    
+    Color_Red = RGB(255, 0, 0)
+    
+    Dim InkoutFolder_Checkbox As Object
+    Set InkoutFolder_Checkbox = formAutoInkout.Controls("checkStep_" & Format(Index_Schedule, "00") & "_" & Format(Index_Step, "00"))
+    With InkoutFolder_Checkbox
+        .BackColor = Color_Red
+    End With
+    
+    Dim InkoutSchedule_Remarks As Object
+    Set InkoutSchedule_Remarks = formAutoInkout.Controls("checkStep_" & Format(Index_Schedule, "00") & "_" & Format(Index_Step, "00"))
+    With InkoutSchedule_Remarks
+        .BackColor = Color_Red
+        .Caption = InkoutSchedule_Remark
+    End With
+        
+End Sub
+
+
+Public Sub subSetInkoutScheduleFolder(ByVal Index_Schedule As Integer, Index_Step As Integer)
+    
+    '-----------------------------------------------------------
+    ' 1. Obtain InkoutFolder Object Inkout Schedule Inkout_Step
+    '-----------------------------------------------------------
+    Color_LightGray = RGB(240, 240, 240)
+    Color_Red = RGB(255, 0, 0)
+    Color_White = RGB(255, 255, 255)
+    
+    '------------------------------------------------------------------
+    ' 1. Check if the InkoutFolder is available for the InkoutSchedule
+    '------------------------------------------------------------------
+    InkoutSchedule = ThisWorkbook.Sheets("Switches").Cells(1 + Index_Schedule, 1).Value2
+    InkoutSchedule_FolderCount = ThisWorkbook.Sheets("Switches").Cells(1 + Index_Schedule, Columns.count).End(xlToLeft).Column - 1
+    
+    If Index_Step > InkoutSchedule_FolderCount Then
+        MsgBox "The Inkout Folder (" & Index_Step & ") is not available for Inkout Schedule " & InkoutSchedule
+        Exit Sub
+    End If
+    
+    '------------------------------------------------------------------
+    ' 2. Switch False all other InkoutFolder except InkoutFolder_Index
+    '------------------------------------------------------------------
+    Dim InkoutFolder_Range As Range
+    For j = 1 To InkoutSchedule_FolderCount
+        
+        If j <> Index_Step Then
+            Set InkoutFolder_Range = ThisWorkbook.Sheets("Switches").Range("B2").Offset(Index_Schedule - 1, j - 1)
+            InkoutFolder_Range.Value = False
+            Module1.subSetUI_False InkoutSchedule_Index, j
+        End If
+    
+    Next
+    
+    '------------------------------------------------------------------------------------
+    ' 3. If InkoutFolder_Index is already True, change value & UI to False then Exit Sub
+    '------------------------------------------------------------------------------------
+    Set InkoutFolder_Range = ThisWorkbook.Sheets("Switches").Range("B2").Offset(Index_Schedule - 1, Index_Step - 1)
+    If InkoutFolder_Range.Value2 = True Then
+        
+        InkoutFolder_Range.Value = False
+        Module1.subSetUI_False InkoutSchedule_Index, InkoutFolder_Index
+        Exit Sub
+        
+    End If
+
+    
+    InkoutSchedule_MotherLotID = ThisWorkbook.Sheets("Subfolders").Range("C2").Offset(Index_Schedule, 0).Value
+    
+    
+    '--------------------------------
+    ' ERROR CASE 1: No Mother Lot ID
+    '--------------------------------
+    If InkoutSchedule_MotherLotID = "" Then
+        Module4.subSetUI_Error InkoutSchedule_Index, InkoutFolder_Index, "No Mother Lot ID found; please manual ink-out."
+        
+        With formAutoInkout.Controls("lblRemarks_" & Format(Index_Schedule, "00"))
+            .Caption = "No Mother Lot ID found; please manual ink-out."
+            .BackColor = Color_Red
+            .ForeColor = Color_White
+        End With
+        
+        Exit Sub
+    End If
+    
+    CumulativeCount = ThisWorkbook.Sheets("Subfolders").Range("E2").Offset(Index_Schedule, 0).Value
+    InkoutMapDirectory = ThisWorkbook.Sheets("Subfolders").Range("G3").Offset(CumulativeCount + Index_Step - 1, 0).Value
+    InkoutMapList = Module1.GetMapList(Schedule, InkoutMapDirectory)
+    
+    '----------------------------------
+    ' ERROR CASE 2: No map in Bumping2
+    '----------------------------------
+    If IsEmpty(InkoutMapList) Then
+        formAutoInkout.Controls("lblRemarks_" & Format(Index_Schedule, "00")).Caption = "No maps found in Bumping2 Ink-out Folder."
+        Exit Sub
+    End If
+    
+    Dim Remarks(1 To 13) As String, path(1 To 13)
+    Dim ImpactWaferCount As Integer
+    
+    
+    For Each Map In InkoutMapList
+        
+        filePath = InkoutMapDirectory & "\" & Map
+        
+        InkoutMapWaferID = Module1.GetWaferID(filePath)
+        
+        DefectCount = Module1.CountF30(filePath)
+        
+        If DefectCount > 0 Then
+            ImpactWaferCount = ImpactWaferCount + 1
+            
+            '--------------------------------------------------
+            ' ERROR CASE 3: 1 Wafer with multiple ink-out maps
+            '--------------------------------------------------
+            If Remarks(InkoutMapWaferID) <> "" Then
+                formAutoInkout.Controls("lblRemarks_" & Format(Index_Schedule, "00")).Caption = "2 maps for 1 wafer detected; please confirm."
+                Exit Sub
+            End If
+            Remarks(InkoutMapWaferID) = "S" & InkoutMapWaferID & "-" & DefectCount & "ea"
+            path(InkoutMapWaferID) = filePath
+            
+        End If
+    Next
+
+    '-------------------------
+    ' CASE 3: No F30 detected
+    '-------------------------
+    If ImpactWaferCount = 0 Then
+        RemarksString = "No F30 detected"
+        formAutoInkout.Controls("lblRemarks_" & Format(Index_Schedule, "00")).Caption = RemarksString
+        Exit Sub
+    End If
+    
+    
+    Dim ImpactRemarks() As String, ImpactPath() As String
+    ReDim ImpactRemarks(0 To ImpactWaferCount - 1)
+    ReDim ImpactPath(0 To ImpactWaferCount - 1)
+    Dim count As Integer
+    count = 0
+    Dim Dictionary() As Variant
+    ReDim Dictionary(1 To ImpactWaferCount)
+    
+    'InitializeDictionaries (ImpactWaferCount)
+    
+    For i = 1 To 13
+        Remark = Remarks(i)
+        If Remark <> "" Then
+            
+            ImpactRemarks(count) = Remark
+            ImpactPath(count) = path(i)
+            count = count + 1
+            'Set Dictionary(count) = Module1.CountDefectCodes(path(i))
+            
+        End If
+    
+    Next
+    
+    
+    
+    RemarksString = Join(ImpactRemarks, ",")
+    
+    instanceSwitch.Value = True
+    Schedule = ThisWorkbook.Sheets(2).Range("A2").Offset(Index_Schedule - 1, 0).Value
+    formAutoInkout.Controls("lblRemarks_" & Format(Index_Schedule, "00")).Caption = RemarksString
+    
+    '-----------------
+    ' Ongoing testing
+    '-----------------
+    'formChangeCode.loaddict Dictionary
+    'formChangeCode.Show
+
+End Sub
+
+
+Public Function AppendToTextFile(ByVal TextToAppend As String) As Boolean
+    
+    filePath = "\\10.10.20.70\Bumping5\Other\Sean\Auto Inkout Log.txt"
+    Dim fileNum As Integer
+    
+    On Error GoTo ErrHandler
+    
+    fileNum = FreeFile
+    Open filePath For Append As #fileNum
+    Print #fileNum, TextToAppend
+    Close #fileNum
+    
+    AppendToTextFile = True
+    Exit Function
+
+ErrHandler:
+    AppendToTextFile = False
+    If fileNum > 0 Then Close #fileNum
+End Function
+
+Private Sub btnInkout_Click()
+    
+    
+    
+    '------------------------------------------------------
+    ' 1. Loop through each schedule to check if NeedInkout
+    '------------------------------------------------------
+    Dim ScheduleCount As Integer
+    ScheduleCount = ThisWorkbook.Sheets("Switches").Range("A" & Rows.count).End(xlUp).Row - 1
+    
+    Dim NeedInkoutInformation(1 To 10, 4) As Variant, NeedInkoutCount As Integer, NeedInkout As Boolean
+    NeedInkoutCount = 0
+    
+    '------------------------------------------
+    ' 1.1 Prepare Ink-out Confirmation message
+    '------------------------------------------
+    Dim InkoutConfirmationMessage As String
+    InkoutConfirmationMessage = "Inkout the following lots?" & vbNewLine
+    Dim ErrorRange As Range
+    Set ErrorRange = ThisWorkbook.Sheets("Settings").Range("B22")
+    For i = 1 To ScheduleCount
+        
+        ErrorRange.Value2 = True
+        ThisWorkbook.Sheets("Settings").Range("C22").Value2 = ""
+        
+        Schedule_LotID = ThisWorkbook.Sheets("Subfolders").Range("B3").Offset(i - 1, 0).Value2
+        Schedule_MotherLotID = ThisWorkbook.Sheets("Subfolders").Range("C3").Offset(i - 1, 0).Value2
+        Schedule_InkoutFolderCount = ThisWorkbook.Sheets("Switches").Cells(1 + i, Columns.count).End(xlToLeft).Column - 1
+        
+        '---------------------------------------------------------------------
+        ' 2. Loop through each InkoutFolder to check if NeedInkout;
+        '    If found step NeedInkout, exit j loop (1 inkout folder/schedule)
+        '---------------------------------------------------------------------
+        For j = 1 To Schedule_InkoutFolderCount
+            
+            NeedInkout = ThisWorkbook.Sheets("Switches").Range("B2").Offset(i - 1, j - 1).Value
+                
+            If NeedInkout Then
+            
+                CumulativeCount = ThisWorkbook.Sheets("Subfolders").Range("E3").Offset(i - 1, 0).Value
+                Schedule_InkoutFolder = ThisWorkbook.Sheets("Subfolders").Range("F3").Offset(CumulativeCount + j - 1, 0).Value
+                Schedule_InkoutFolderPath = ThisWorkbook.Sheets("Subfolders").Range("G3").Offset(CumulativeCount + j - 1, 0).Value
+                       
+                NeedInkoutCount = NeedInkoutCount + 1
+                NeedInkoutInformation(NeedInkoutCount, 0) = Schedule_LotID
+                NeedInkoutInformation(NeedInkoutCount, 2) = Schedule_MotherLotID
+                NeedInkoutInformation(NeedInkoutCount, 1) = Schedule_InkoutFolder
+                NeedInkoutInformation(NeedInkoutCount, 3) = Schedule_InkoutFolderPath
+                InkoutConfirmationMessage = InkoutConfirmationMessage & "  " & Schedule_LotID & vbTab & Schedule_InkoutFolder & vbNewLine
+                Exit For
+
+            End If
+        Next
+        
+        
+        If ErrorRange.Value Then
+        
+        
+        
+    Next
+    
+    '------------------------------------------------------------------
+    ' 3. Prompt user InkoutConfirmationMessage to proceed, then Inkout
+    '------------------------------------------------------------------
+If MsgBox(InkoutConfirmationMessage, vbOKCancel) = vbCancel Then Exit Sub
+    For i = 1 To NeedInkoutCount
+        NeedInkoutInformation(i, 4) = Module1.Inkout(NeedInkoutInformation(i, 0), NeedInkoutInformation(i, 2), NeedInkoutInformation(i, 3))
+    Next
+    
+    If ThisWorkbook.Sheets("Settings").Range("B22").Value2 = False Then
+        MsgBox "Inkout Map failed; please check below error log: " & vbNewLine & ThisWorkbook.Sheets("Settings").Range("C22").Value2, vbCritical
+        Exit Sub
+    End If
+        
+    '------------------------------------------------
+    ' 4. Double-prompt user if need to merge to Onyx
+    '------------------------------------------------
+    If MsgBox("Inkout done. Save to Onyx Panel Map?", vbOKCancel) = vbCancel Then
+        MsgBox "Merge to Onyx cancelled. Exiting"
+        Exit Sub
+    End If
+    
+    If MsgBox("Please confirm all ink-out maps before uploading to Onyx", vbOKCancel) = vbCancel Then
+        MsgBox "Merge to Onyx cancelled. Exiting"
+        Exit Sub
+    End If
+    
+    '-------------------------------
+    ' 5. Merge Ink-out Maps to Onyx
+    '-------------------------------
+    Dim fso As Object
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    
+    For i = 1 To NeedInkoutCount
+        
+        '----------------------------------------------------
+        ' 5.1 Loops through InkoutMap in InkoutMap_Directory
+        '----------------------------------------------------
+        InkoutMap_Directory = NeedInkoutInformation(i, 4)
+        InkoutMap_Filename = Dir(InkoutMap_Directory)
+        'InkoutMap_FullFilename = InkoutMap_Directory & InkoutMap_Filename
+        
+        Do While InkoutMap_Filename <> ""
+    
+            '--------------------------------------------
+            ' 5.2 Checks if InkoutMap_Filename is a file
+            '--------------------------------------------
+            InkoutMap_FullFilename = InkoutMap_Directory & InkoutMap_Filename
+            If (GetAttr(InkoutMap_FullFilename) And vbDirectory) = 0 Then
+                
+                
+                'fso.CopyFile InkoutMap_FullFilename, "C:\Users\K18607\Desktop\New folder\" & InkoutMap_Filename
+                fso.CopyFile InkoutMap_FullFilename, "\\10.16.112.76\Onyx\PanelMap\" & InkoutMap_Filename
+                
+            End If
+            InkoutMap_Filename = Dir
+        Loop
+    Next
+    
+    MsgBox "Merge to Onyx successful."
+
+End Sub
+
+Private Sub UserForm_Initialize()
+                    
+    
+    '------------------------
+    ' 1. Retrieve PROPERTIES
+    '------------------------
+    Dim wsSettings As Worksheet
+    Set wsSettings = ThisWorkbook.Sheets("Settings")
+    PROPERTIES_PanelMapDirectory = wsSettings.Range("B2").Value2
+    PROPERTIES_InkoutMapDirectory = wsSettings.Range("B3").Value2
+    PROPERTIES_MergeMapDirectory = wsSettings.Range("B4").Value2
+    PROPERTIES_MaxScheduleCount = wsSettings.Range("B13").Value 'wsSettings.Range("B5").Value2
+    If PROPERTIES_MaxScheduleCount = 0 Then PROPERTIES_MaxScheduleCount = 10
+    PROPERTIES_MaxStepCount = wsSettings.Range("B6").Value2
+    
+    PROPERTIES_StepsWidth = 42
+    PROPERTIES_StepsHeight = 30
+    PROPERTIES_ScheduleWidth = 65
+    PROPERTIES_RowHeight = 22
+    Padding = 2
+    
+    ReDim checkStep(1 To PROPERTIES_MaxScheduleCount, 1 To PROPERTIES_MaxStepCount)
+    ReDim LABEL_Schedule(1 To PROPERTIES_MaxScheduleCount) As Object
+    ReDim LABEL_ScheduleBackground(1 To PROPERTIES_MaxScheduleCount) As Object
+    
+    
+    
+    
+    Me.lblHeader.BackColor = RGB(220, 234, 247)
+    
+    Me.txtPanelMapDirectory.Value = PROPERTIES_PanelMapDirectory
+    Me.txtInkoutMapDirectory.Value = PROPERTIES_InkoutMapDirectory
+    
+    'Me.txtMergeMapDirectory.Value = PROPERTIES_MergeMapDirectory
+    
+    
+    
+    subSetCSSStyling
+    Me.lblInstruction2.Width = Me.Controls("lblRemarksHeaderBackground").Left - Padding - Me.lblInstruction2.Left
+    Me.lblInstruction3.Width = Me.Controls("lblRemarksHeaderBackground").Width
+    Me.lblInstruction3.Left = Me.Controls("lblRemarksHeaderBackground").Left
+    '-----------------------------
+    ' 2. Set-up Userform Controls
+    '-----------------------------
+    
+    For i = 1 To PROPERTIES_MaxScheduleCount
+        
+        '---------------------------------
+        ' 2.1 Setup lblScheduleBackground
+        '---------------------------------
+  Set LABEL_ScheduleBackground(i) = Me.Controls.Add("Forms.Label.1", "lblScheduleBackground_" & Format(i, "00"), True)
+        LABEL_ScheduleBackground(i).Width = PROPERTIES_ScheduleWidth
+        LABEL_ScheduleBackground(i).Height = PROPERTIES_RowHeight
+        LABEL_ScheduleBackground(i).Left = Me.lblWorkArea.Left + Padding
+        LABEL_ScheduleBackground(i).Top = Me.lblWorkArea.Top + PROPERTIES_RowHeight + Padding + (PROPERTIES_RowHeight + Padding) * (i - 1)
+        
+        LABEL_ScheduleBackground(i).BackColor = RGB(250, 250, 250)
+        
+        '-----------------------
+        ' 2.2 Setup lblSchedule
+        '-----------------------
+        Set LABEL_Schedule(i) = Me.Controls.Add("Forms.Label.1", "lblSchedule_" & Format(i, "00"), True)
+        LABEL_Schedule(i).Width = PROPERTIES_ScheduleWidth
+        LABEL_Schedule(i).Height = PROPERTIES_RowHeight
+        LABEL_Schedule(i).Left = LABEL_ScheduleBackground(i).Left + 6
+        LABEL_Schedule(i).Top = LABEL_ScheduleBackground(i).Top + 4
+        
+        LABEL_Schedule(i).BackStyle = fmBackStyleTransparent
+        LABEL_Schedule(i).Caption = ""
+        LABEL_Schedule(i).Font.Name = "Courier New"
+        LABEL_Schedule(i).Font.Size = 8
+        
+        '-------------------------
+        ' 2.3 Setup lblChangeCode
+        '-------------------------
+        
+        If False Then
+            Set labelInstance = Me.Controls.Add("Forms.Label.1", "lblChangeCode_" & Format(i, "00"), True)
+            'labelInstance.Left = LABEL_ScheduleBackground(i).Left + LABEL_ScheduleBackground(i).Width + Padding + (PROPERTIES_StepsWidth + Padding) * (PROPERTIES_MaxStepCount)
+            
+            labelInstance.Left = Me.Controls("lblChangeCodeBackground").Left
+            labelInstance.Top = LABEL_ScheduleBackground(i).Top
+            labelInstance.Width = Me.Controls("lblChangeCodeBackground").Width
+            labelInstance.Height = PROPERTIES_RowHeight
+            
+            labelInstance.BackColor = RGB(250, 250, 250)
+            labelInstance.Font.Name = "Courier New"
+            labelInstance.Font.Size = 8
+        End If
+        
+        '----------------------
+        ' 2.3 Setup lblRemarks
+        '----------------------
+  Set labelInstance = Me.Controls.Add("Forms.Label.1", "lblRemarks_" & Format(i, "00"), True)
+        'labelInstance.Left = LABEL_ScheduleBackground(i).Left + LABEL_ScheduleBackground(i).Width + Padding + (PROPERTIES_StepsWidth + Padding) * (PROPERTIES_MaxStepCount)
+        labelInstance.Left = Me.Controls("lblRemarksHeaderBackground").Left
+        labelInstance.Top = LABEL_ScheduleBackground(i).Top
+        labelInstance.Width = 320
+        labelInstance.Height = PROPERTIES_RowHeight
+        
+        labelInstance.BackColor = RGB(250, 250, 250)
+        labelInstance.Font.Name = "Courier New"
+        labelInstance.Font.Size = 8
+        
+        '---------------------
+        ' 2.4 Setup checkStep
+        '---------------------
+        For j = 1 To PROPERTIES_MaxStepCount
+        
+            checkboxName = "checkStep_" & Format(i, "00") & "_" & Format(j, "00")
+            Set checkboxInstance = Me.Controls.Add("Forms.Label.1", checkboxName, True)
+            
+            checkboxInstance.Width = PROPERTIES_StepsWidth
+            checkboxInstance.Height = PROPERTIES_RowHeight
+            checkboxInstance.Left = LABEL_ScheduleBackground(i).Left + LABEL_ScheduleBackground(i).Width + Padding + (checkboxInstance.Width + Padding) * (j - 1)
+            checkboxInstance.Top = LABEL_ScheduleBackground(i).Top
+            
+            checkboxInstance.SpecialEffect = fmButtonEffectFlat
+            checkboxInstance.BackColor = RGB(250, 250, 250)
+            checkboxInstance.Font.Name = "Courier New"
+            checkboxInstance.Font.Size = 8
+            checkboxInstance.Caption = ""
+            checkboxInstance.WordWrap = False
+            
+            Set checkStep(i, j) = New Class1
+            Set checkStep(i, j).checkbox = checkboxInstance
+            Set checkStep(i, j).Range = ThisWorkbook.Sheets("Switches").Range("B2").Offset(i - 1, j - 1)
+            checkStep(i, j).Row = i
+                    
+        
+        Next
+        
+    Next
+    
+    Dim wbInkout As Workbook
+    WorkbookOpen = False
+     For Each wb In Application.Workbooks
+        If Left(wb.Name, 6) = "FX Ink" Then
+            Set wbInkout = wb
+            WorkbookOpen = True
+            Exit For
+        End If
+    
+    Next
+    
+    Dim path As String
+    path = ThisWorkbook.Sheets("Settings").Range("B9").Value
+    
+    If Not WorkbookOpen Then
+        Set wbInkout = Application.Workbooks.Open(path & "\FX Ink out die cowork table_(Security C).xlsx")
+    End If
+    
+    If PROPERTIES_MaxScheduleCount > 0 Then
+    
+        InkoutSchedules = ""
+        InkoutEntryCount = wbInkout.Sheets(1).Range("C" & Rows.count).End(xlUp).Row
+        InkoutDoneCount = wbInkout.Sheets(1).Range("K" & Rows.count).End(xlUp).Row
+        InkoutNeedCount = InkoutEntryCount - InkoutDoneCount
+        
+        For i = 1 To InkoutNeedCount
+            InkoutSchedules = InkoutSchedules & vbNewLine & wbInkout.Sheets(1).Range("E" & InkoutDoneCount + i).Value
+        Next
+        
+    End If
+    
+    InkoutSchedules = Right(InkoutSchedules, Len(InkoutSchedules) - 2)
+    
+    formAutoInkout.txtInkoutSchedules.Value = InkoutSchedules
+    
+    
+End Sub
+
+Private Sub Workbook_Open()
+
+    
+    
+    formAutoInkout.Show
+    ThisWorkbook.Sheets("Settings").Visible = False
+    ThisWorkbook.Sheets("Switches").Visible = False
+    ThisWorkbook.Sheets("Subfolders").Visible = False
+    
+    Dim path As String
+    path = ThisWorkbook.Sheets("Settings").Range("B9").Value
+    
+    
+    
+    Dim wbInkout As Workbook
+    Set wbInkout = Application.Workbooks.Open(path & "\FX Ink out die cowork table_(Security C).xlsx")
+    
+    Dim InkoutDoneCount As Integer, InkoutNeedCount As Integer
+    InkoutDoneCount = wbInkout.Sheets(1).Range("K" & Rows.count).End(xlUp).Row
+    InkoutEntryCount = wbInkout.Sheets(1).Range("B" & Rows.count).End(xlUp).Row
+    
+    InkoutNeedCount = InkoutEntryCount - InkoutDoneCount
+    
+    
+    
+    'ThisWorkbook.Sheets("Settings").Range("B13").Value = InkoutNeedCount
+    
+    'MsgBox Environ("USERNAME")
+    AppendToTextFile (Now & ": " & Environ("USERNAME") & " open")
+    
+    
+    
+End Sub
+
+'====================
+' Userform Initialize
+'====================
+
+Private Sub UserForm_Initialize()
+    
+    '------------------------
+    ' 1. Get PanelMapContent
+    '------------------------
+    fileNum = FreeFile
+    
+    PanelMapFilename = "C:\Users\Sean\Desktop\Analyze Map Text Tester\75QM81B001-01C4.txt"
+    Open PanelMapFilename For Input As #fileNum
+    Do Until EOF(fileNum)
+        Line Input #fileNum, LineInstance
+        PanelMapFileContent = PanelMapFileContent & vbNewLine & LineInstance
+    Loop
+    Close #fileNum
+    PanelMapFileContent = Right(PanelMapFileContent, Len(PanelMapFileContent) - 2)
+    
+    Dim cd As Object
+    Set cd = CreateObject("Scripting.Dictionary")
+    cd.Add "065", 0
+    cd.Add "012", 0
+    
+    Dim Test As MapStats
+    Set Test = Module4.AnalyzeMapText(PanelMapFileContent, cd)
+    MsgBox "getting keys now"
+    For Each k In Test.DefectMap.Keys
+        Summary = Summary & k & ": "
+        For Each Location In Test.DefectMap(k)
+            Summary = Summary & Location
+        
+        Next
+        
+    Next
+    MsgBox Summary
+    'MsgBox Text.DefectMap("012")
+    
+    
+End Sub
+
+'=================
+'mAPsTATNS CLASS
+'=============
+Public SpaceCount As Long
+Public UnderscoreCount As Long
+Public DPW As Long
+Public UncommonCount As Long
+Public HasUncommonDefect As Boolean
+
+Public OriginCol As Long
+Public OriginRow As Long
+
+Public DefectMap As Object   ' Dictionary
+
+Public Sub Init()
+    Set DefectMap = CreateObject("Scripting.Dictionary")
+End Sub
+
+
+
+
+
