@@ -1,0 +1,189 @@
+Option Explicit
+
+Public NextRunTime As Date
+
+Sub StartScheduler()
+    ' Schedule the first run 30 minutes from now
+    NextRunTime = Now + TimeValue("00:00:05")
+    Application.OnTime NextRunTime, "TaskToRun"
+End Sub
+
+Sub TaskToRun()
+    ' >>> Put your actual task here <<<
+    Call MyProcess
+
+    ' Reschedule the next run
+    NextRunTime = Now + TimeValue("00:00:05")
+    Application.OnTime NextRunTime, "TaskToRun"
+End Sub
+
+Sub StopScheduler()
+    ' Cancel the next scheduled run
+    On Error Resume Next
+    Application.OnTime NextRunTime, "TaskToRun", , False
+End Sub
+
+Sub MyProcess()
+    ' Example task — replace with your own logic
+        Dim i As Integer, j As Integer
+        Dim r As Integer, c As Integer, Sheetname As String
+        Dim Field As String, key As String, KeyColumn As Integer
+        c = ThisWorkbook.Sheets("Sheet1").Range("B1").End(xlDown).Column
+        r = ThisWorkbook.Sheets("Sheet1").Range("B1").End(xlDown).Row
+        Sheetname = "Sheet1"
+        Dim FieldCount As Integer
+        MsgBox ThisWorkbook.Sheets(Sheetname).Cells(r, Columns.Count).End(xlToLeft).Address
+        FieldCount = ThisWorkbook.Sheets(Sheetname).Cells(r, Columns.Count).End(xlToLeft).Column - 3
+        
+        For i = 0 To FieldCount
+                Field = ThisWorkbook.Sheets(Sheetname).Range("C" & r).Offset(0, i).Value
+                
+                If InStr(1, Field, "$") > 0 Then
+                
+                        key = Field
+                        KeyColumn = 3 + i
+                End If
+        Next
+        
+        WIPFieldCount = ThisWorkbook.Sheets("WIP").Cells(1, Columns.Count).End(xlToLeft).Column
+        For i = 1 To WIPFieldCount
+                Field = ThisWorkbook.Sheets("WIP").Range("A" & i).Offset(0, i).Value
+                
+                If InStr(1, Field, "$") > 0 Then
+                
+                        key = Field
+                        KeyColumn = 3 + i
+                End If
+        Next
+        
+        MsgBox key & " " & KeyColumn
+        'DictFromSheet (ThisWorkbook.Sheets("WIP"), Key)
+
+End Sub
+
+
+Function DictFromSheet(ws As Worksheet, KeyColumn) As Object
+    Dim dict As Object
+    Set dict = CreateObject("Scripting.Dictionary")
+    
+    Dim lastRow As Long
+    lastRow = ws.Cells(ws.Rows.Count, "A").End(xlUp).Row
+    
+    Dim r As Long
+    
+    Dim lastColumn As Long
+    lastColumn = ws.Cells(1, Columns.Count).End(xlUp).Row
+    
+    For c = 1 To lastColumn
+    
+    
+        If Trim(ws.Cells(r, KeyColumn).Value) <> "" Then
+            dict(ws.Cells(r, KeyColumn).Value) = ws.Cells(r, "D").Value
+        End If
+    Next r
+    
+    Set DictFromSheet = dict
+End Function
+
+
+
+Sub UpdateTableFromWIP_UsingKeys()
+
+    Dim wsMain As Worksheet, wsWIP As Worksheet
+    Dim lastRowMain As Long, lastColMain As Long
+    Dim lastRowWIP As Long, lastColWIP As Long
+    Dim WIP_Dictionary As Object, rowDict As Object
+    Dim r As Long, c As Long
+    Dim keyColMain As Long, keyColWIP As Long
+    Dim key As String, header As String
+    
+    Set wsMain = ThisWorkbook.Sheets("Sheet1")
+    Set wsWIP = ThisWorkbook.Sheets("WIP")
+    
+    
+    '--- FIND LAST ROW/COLUMN ---
+    lastRowMain = wsMain.Cells(wsMain.Rows.Count, "A").End(xlUp).Row
+    lastColMain = wsMain.Cells(1, wsMain.Columns.Count).End(xlToLeft).Column
+    
+    lastRowWIP = wsWIP.Cells(wsWIP.Rows.Count, "A").End(xlUp).Row
+    lastColWIP = wsWIP.Cells(1, wsWIP.Columns.Count).End(xlToLeft).Column
+    
+    '--- FIND KEY COLUMN (header contains "$") ---
+    Dim keyMain As String
+    For c = 1 To lastColMain
+        If InStr(1, wsMain.Cells(1, c).Value, "$") > 0 Then
+            keyMain = Replace(wsMain.Cells(1, c).Value, "$", "")
+            keyColMain = c
+            Exit For
+        End If
+    Next c
+    
+    For c = 1 To lastColWIP
+        If wsWIP.Cells(1, c).Value = keyMain Then
+             
+            keyColWIP = c
+            Exit For
+        End If
+    Next c
+    
+    Set WIP_Dictionary = CreateObject("Scripting.Dictionary")
+    '--- BUILD DICTIONARY FROM WIP ---
+    For r = 2 To lastRowWIP
+        
+        key = Trim(wsWIP.Cells(r, keyColWIP).Value)
+        If key <> "" Then
+            
+            Set rowDict = CreateObject("Scripting.Dictionary")
+            
+            For c = 1 To lastColWIP
+                header = Trim(wsWIP.Cells(1, c).Value)
+                If header <> "" Then
+                        
+                        rowDict(header) = wsWIP.Cells(r, c).Value
+                        
+                End If
+            Next c
+            
+            
+                        Debug.Print "-----------------------------"
+        Debug.Print "TypeName(WIP_Dictionary) = "; TypeName(WIP_Dictionary)
+        Debug.Print "IsObject(dictrow) = "; IsObject(WIP_Dictionary)
+        Debug.Print "Key = "; key
+        Debug.Print "TypeName(rowDict) = "; TypeName(rowDict)
+        'Stop   ' <-- forces VBA to pause so you can inspect Locals window
+                MsgBox "key is " & key
+             Set WIP_Dictionary(key) = rowDict
+        End If
+    Next r
+        
+        Dim something As Variant
+        For Each something In WIP_Dictionary.keys
+                MsgBox "key is " & something
+        Next
+        
+    
+    '--- UPDATE MAIN TABLE USING KEYS ---
+    For r = 2 To lastRowMain
+        
+        key = Trim(wsMain.Cells(r, keyColMain).Value)
+        
+        If WIP_Dictionary.Exists(key) Then
+            
+            Set rowDict = WIP_Dictionary(key)
+            
+            For c = 1 To lastColMain
+                
+                header = Trim(wsMain.Cells(1, c).Value)
+                
+                If rowDict.Exists(header) Then
+                         wsMain.Cells(r, c).Value = rowDict(header)
+                End If
+                
+            Next c
+        End If
+    Next r
+    
+    MsgBox "Table updated using keys and matching headers."
+
+End Sub
+
