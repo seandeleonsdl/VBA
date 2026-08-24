@@ -1,0 +1,105 @@
+'1. Why do we need Option Explicit?
+
+Sub subUpdateAllQueryTables()
+
+        Set wsQueryTables = ThisWorkbook.Sheets("Sheet3")
+        Set wsRawData = ThisWorkbook.Sheets("WIP")
+    
+        '1. Loop through each "$" anchors and run function update query tables
+        Set rangeQueryTable_Anchor = wsQueryTables.Cells.Find(What:="$", LookIn:=xlValues, LookAt:=xlWhole)
+        If rangeQueryTable_Anchor Is Nothing Then Exit Sub
+        QueryTable_FirstAnchorAddress = rangeQueryTable_Anchor.Address
+        
+        Do
+            subUpdateQueryTable wsQueryTables.Name, wsRawData.Name, rangeQueryTable_Anchor.Offset(0, 1).Address
+            Set rangeQueryTable_Anchor = wsQueryTables.Cells.FindNext(rangeQueryTable_Anchor)
+            
+        Loop While rangeQueryTable_Anchor.Address <> QueryTable_FirstAnchorAddress
+
+End Sub
+
+
+Sub subUpdateQueryTable(QueryTable_WorksheetName, RawData_WorksheetName, QueryTable_Origin)
+
+        Set wsQueryTables = ThisWorkbook.Sheets(QueryTable_WorksheetName)
+        
+        ' 1. Map Query Headers
+        QueryTable_FirstColumn = wsQueryTables.Range(QueryTable_Origin).Column
+        If wsQueryTables.Range(QueryTable_Origin).Offset(0, 1) = "" Then
+                QueryTable_ColumnCount = 1
+        Else
+                QueryTable_ColumnCount = wsQueryTables.Range(QueryTable_Origin).End(xlToRight).Column
+        End If
+    
+        ' 2. Find Key Header
+        For j = 1 To QueryTable_ColumnCount
+                QueryTable_Header = wsQueryTables.Range(QueryTable_Origin).Offset(0, j - 1).Value
+                If InStr(1, QueryTable_Header, "$") > 0 Then
+                    QueryTable_KeyHeader = Replace(QueryTable_Header, "$", "")
+                    QueryTable_KeyHeaderColumnNo = j
+                    Exit For
+                End If
+        Next j
+    
+        ' 3. Map Query Entries
+        QueryTable_HeaderRow = wsQueryTables.Range(QueryTable_Origin).Row
+        If wsQueryTables.Range(QueryTable_Origin).Offset(1, QueryTable_KeyHeaderColumnNo - 1).Value = "" Then
+                QueryTable_EntryCount = 0
+        Else
+                QueryTable_EntryCount = wsQueryTables.Range(QueryTable_Origin).Offset(0, QueryTable_KeyHeaderColumnNo - 1).End(xlDown).Row - QueryTable_HeaderRow
+        End If
+    
+        '4. Build Dictionary from RawData
+        Set wsRawData = ThisWorkbook.Sheets(RawData_WorksheetName)
+        RawData_LastRow = wsRawData.Cells(wsRawData.Rows.Count, "A").End(xlUp).Row
+        RawData_LastColumn = wsRawData.Cells(1, wsRawData.Columns.Count).End(xlToLeft).Column
+    
+        For j = 1 To RawData_LastColumn
+                If wsRawData.Cells(1, j).Value = QueryTable_KeyHeader Then
+                        RawData_KeyHeaderColumnNo = j
+                        Exit For
+                End If
+        Next j
+    
+        Set RawData_Dictionary = CreateObject("Scripting.Dictionary")
+        For x = 2 To RawData_LastRow
+                
+                RawData_Key = Trim(UCase(wsRawData.Cells(x, RawData_KeyHeaderColumnNo).Value))
+                
+                If RawData_Key <> "" Then
+                    
+                        Set RawData_SingleEntryDictionary = CreateObject("Scripting.Dictionary")
+                        
+                        For j = 1 To RawData_LastColumn
+                                RawData_Header = Trim(UCase(wsRawData.Cells(1, j).Value))
+                                If RawData_Header <> "" Then RawData_SingleEntryDictionary(RawData_Header) = wsRawData.Cells(x, j).Value
+                                
+                        Next j
+                    
+                        Set RawData_Dictionary(RawData_Key) = RawData_SingleEntryDictionary
+                End If
+        Next x
+        
+        '5. Update Query Table
+        Dim QueryTable_RawData() As Variant
+        ReDim QueryTable_RawData(1 To QueryTable_EntryCount, 1 To QueryTable_ColumnCount)
+        For i = 1 To QueryTable_EntryCount
+            
+                QueryTable_Key = Trim(UCase(wsQueryTables.Range(QueryTable_Origin).Offset(i, QueryTable_KeyHeaderColumnNo - 1).Value))
+                If RawData_Dictionary.Exists(QueryTable_Key) Then
+                        Set QueryTable_SingleEntryDictionary = RawData_Dictionary(QueryTable_Key)
+                    
+                        For j = 1 To QueryTable_ColumnCount
+                        
+                                QueryTable_Header = Replace(Trim(UCase(wsQueryTables.Range(QueryTable_Origin).Offset(0, j - 1).Value)), "$", "")
+                                If QueryTable_SingleEntryDictionary.Exists(QueryTable_Header) Then QueryTable_RawData(i, j) = QueryTable_SingleEntryDictionary(QueryTable_Header)
+        
+                        Next j
+                Else
+                        QueryTable_RawData(i, QueryTable_KeyHeaderColumnNo) = QueryTable_Key
+                End If
+        Next i
+        wsQueryTables.Range(wsQueryTables.Range(QueryTable_Origin).Offset(1, 0), wsQueryTables.Range(QueryTable_Origin).Offset(QueryTable_EntryCount, QueryTable_ColumnCount - 1)).Value = QueryTable_RawData
+        
+End Sub
+
